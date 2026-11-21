@@ -519,7 +519,7 @@
     .icon-btn[aria-pressed="true"] { background: var(--active); color: var(--label); }
     .topbar-toggle { display: none; }
     .stage { min-width: 0; min-height: 0; display: grid; }
-    #view-conversation, #view-plugins, #view-messages {
+    #view-conversation, #view-messages {
       min-width: 0;
       min-height: 0;
     }
@@ -645,6 +645,280 @@
     .disclosure-body p { margin: 0 0 4px; }
     .msg-actions { display: flex; gap: 4px; }
     .note { margin: 0; color: var(--caption); }
+    .note--demo { font-size: 12px; line-height: 1.6; }
+
+    /* ---- 运行过程 ----------------------------------------------------------
+       对齐 dsh-client-ui-chat 与 dsh-client-ui-tool 的结构：
+       TurnProcessNodeView（已完成的耗时收起条）→ ChatGroupSeat（过程分组，
+       收起时是「修改了文件，已读取文件，已搜索代码等」）→ ToolRow（一行一次
+       工具调用，可展开查看结果卡片）。 */
+    .turn-process { display: flex; flex-direction: column; min-width: 0; }
+    .turn-process-head {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
+      /* 33px 高度 + 8px 下内边距，底部一条发丝线：TurnProcessNodeView.module.css .root。 */
+      height: 33px;
+      padding: 0 0 8px;
+      border: 0;
+      border-bottom: 0.5px solid var(--border-soft);
+      background: none;
+      color: var(--caption);
+      font: inherit;
+      font-size: 14px;
+      line-height: 24px;
+      text-align: left;
+      cursor: pointer;
+      transition: color 100ms ease;
+    }
+    .turn-process-head:hover { color: var(--secondary); }
+    .turn-process-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .turn-process-num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .turn-process-chevron { --od-icon-size: 14px; flex: none; margin-left: 4px; transition: transform 100ms ease; }
+    .turn-process-head[aria-expanded="true"] .turn-process-chevron { transform: rotate(180deg); }
+    .turn-process-body { display: flex; flex-direction: column; padding-top: 8px; }
+
+    .step-process { display: flex; flex-direction: column; min-width: 0; }
+    .step-process-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--caption);
+      font: inherit;
+      font-size: 14px;
+      line-height: 24px;
+      text-align: left;
+      cursor: pointer;
+      transition: color 100ms ease;
+    }
+    .step-process-head:hover { color: var(--secondary); }
+    .step-leading {
+      position: relative;
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      color: inherit;
+    }
+    .step-icon, .step-chevron {
+      position: absolute;
+      inset: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 100ms ease;
+    }
+    .step-icon, .step-chevron { --od-icon-size: 14px; }
+    .step-chevron { opacity: 0; }
+    .step-process-head:hover .step-icon,
+    .step-process-head:focus-visible .step-icon { opacity: 0; }
+    .step-process-head:hover .step-chevron,
+    .step-process-head:focus-visible .step-chevron { opacity: 1; }
+    .step-process-head[aria-expanded="true"] .step-icon { opacity: 0; }
+    .step-process-head[aria-expanded="true"] .step-chevron { opacity: 1; }
+    .step-process-head[aria-expanded="true"] { padding-bottom: 8px; }
+    .step-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* 展开后的步骤列表：最多 400px 或视口一半，内部滚动，两端渐隐（ChatGroupSeat.module.css .body）。 */
+    .step-process-body {
+      display: flex;
+      flex-direction: column;
+      max-height: min(400px, 50vh);
+      overflow-y: auto;
+      overscroll-behavior-y: auto;
+      scrollbar-gutter: stable;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .step-process-body::-webkit-scrollbar { width: 8px; }
+    .step-process-body::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background: var(--border);
+      background-clip: padding-box;
+    }
+    .step-process-body[data-scroll-up] {
+      mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 100%);
+    }
+    .step-process-body[data-scroll-down] {
+      mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 24px), transparent 100%);
+    }
+    .step-process-body[data-scroll-up][data-scroll-down] {
+      mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+    }
+    .step-process-content { display: flex; flex-direction: column; gap: 4px; }
+    .step-process-content > * { flex-shrink: 0; }
+
+    .tool-row { display: flex; flex-direction: column; min-width: 0; }
+    .tool-row-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      min-height: 24px;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--caption);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: color 100ms ease;
+    }
+    .tool-row-head:hover { color: var(--secondary); }
+    .tool-leading {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+    }
+    .tool-leading .od-icon { --od-icon-size: 14px; }
+    .tool-title { flex: none; font-size: 13px; line-height: 24px; }
+    .tool-row--think .tool-title { font-size: 13px; }
+    .tool-sep { flex: none; width: 2px; height: 2px; margin: 0 8px; border-radius: 1px; background: var(--caption); }
+    .tool-summary {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      line-height: 24px;
+    }
+    .tool-summary.is-path { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    .tool-suffix { flex: none; margin-left: 4px; font-size: 13px; line-height: 24px; white-space: nowrap; }
+    .tool-diff {
+      flex: none;
+      margin-left: 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 24px;
+      white-space: nowrap;
+      transform: translateY(0.5px);
+    }
+    .tool-row[data-open] .tool-diff .diff-add,
+    .tool-row-head:hover .tool-diff .diff-add { color: var(--ok); }
+    .tool-row[data-open] .tool-diff .diff-del,
+    .tool-row-head:hover .tool-diff .diff-del { color: var(--danger); }
+    .tool-chevron {
+      --od-icon-size: 12px;
+      flex: none;
+      margin-left: 6px;
+      opacity: 0;
+      transition: opacity 100ms ease, transform 100ms ease;
+    }
+    .tool-row-head:hover .tool-chevron,
+    .tool-row-head:focus-visible .tool-chevron,
+    .tool-row[data-open] .tool-chevron { opacity: 1; }
+    .tool-row[data-open] .tool-chevron { transform: rotate(90deg); }
+    .tool-row-body { padding: 2px 0 6px 22px; }
+
+    /* 展开的结果卡片：diff / 读取窗口 / 文件列表 / 命令输出，统一走代码字体卡片。 */
+    .tool-card {
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--card);
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .tool-card-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 0.5px solid var(--border-soft);
+      color: var(--caption);
+      font-family: var(--font);
+      font-size: 12px;
+    }
+    .tool-card-head .od-fill { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tool-card-body { max-height: 190px; overflow: auto; padding: 6px 0; }
+    .diff-line { display: flex; gap: 8px; padding: 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .diff-line .sign { flex: none; width: 10px; color: var(--caption); }
+    .diff-line[data-kind="add"] { background: rgba(31, 143, 78, 0.1); }
+    .diff-line[data-kind="add"] .sign { color: var(--ok); }
+    .diff-line[data-kind="del"] { background: rgba(229, 72, 77, 0.1); }
+    .diff-line[data-kind="del"] .sign { color: var(--danger); }
+    .diff-line[data-kind="ctx"] { color: var(--secondary); }
+    .read-line { display: flex; gap: 12px; padding: 0 10px; white-space: pre; }
+    .read-line .ln { flex: none; width: 26px; text-align: right; color: var(--caption); user-select: none; }
+    .read-line .code { overflow: hidden; text-overflow: ellipsis; }
+    .tool-card .tool-paths { padding: 0 10px; }
+    .tool-paths {
+      display: grid;
+      gap: 2px;
+      padding: 2px 0 6px 22px;
+      color: var(--secondary);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .tool-paths span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tool-think {
+      padding: 2px 0 6px 22px;
+      color: var(--secondary);
+      font-size: 13px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .tool-output {
+      padding: 6px 10px;
+      color: var(--secondary);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    /* 运行中的文字用一条扫过的高光，对应源码里的 TextShimmer。 */
+    .is-shimmer {
+      color: transparent;
+      background-image: linear-gradient(90deg, var(--caption) 0%, var(--caption) 32%, var(--label) 50%, var(--caption) 68%, var(--caption) 100%);
+      background-size: 250% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: od-shimmer 1.8s linear infinite;
+    }
+    @keyframes od-shimmer {
+      from { background-position: 100% 0; }
+      to { background-position: -150% 0; }
+    }
+
+    /* 最终回复的 Markdown（段落、列表、行内代码、加粗）。 */
+    .assistant-md { overflow-wrap: anywhere; }
+    .assistant-md > :first-child { margin-top: 0; }
+    .assistant-md > :last-child { margin-bottom: 0; }
+    .assistant-md p { margin: 0 0 10px; }
+    .assistant-md ul, .assistant-md ol { margin: 0 0 10px; padding-left: 22px; }
+    .assistant-md li { margin: 2px 0; }
+    .assistant-md li > ul, .assistant-md li > ol { margin: 2px 0 0; }
+    .assistant-md li::marker { color: var(--caption); }
+    .assistant-md code {
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: var(--chip);
+      color: var(--label);
+      font-family: var(--mono);
+      font-size: 0.92em;
+    }
+    .assistant-md strong { font-weight: 600; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .turn-process-head, .turn-process-chevron, .step-process-head,
+      .step-icon, .step-chevron, .tool-row-head, .tool-chevron { transition: none; }
+      .is-shimmer { animation: none; color: inherit; background: none; }
+    }
     .dock {
       display: flex;
       flex-direction: column;
@@ -810,21 +1084,6 @@
     .picker-option[aria-selected="true"] { background: var(--picker-selected); }
     .picker-check { width: 14px; height: 14px; flex: none; visibility: hidden; }
     .picker-option[aria-selected="true"] .picker-check { visibility: visible; }
-    .plugins { padding: 16px; }
-    .plugin-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-    .tabs { display: flex; gap: 4px; }
-    .tab {
-      min-height: 36px;
-      padding: 6px 12px;
-      border: 0;
-      border-radius: var(--radius-sm);
-      background: transparent;
-      color: var(--secondary);
-    }
-    .tab[aria-selected="true"] {
-      background: var(--active);
-      color: var(--label);
-    }
     .search {
       display: grid;
       gap: 4px;
@@ -838,44 +1097,385 @@
       background: var(--layer);
       color: var(--label);
     }
-    .plugin-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
+    .plugin-config { gap: 18px; }
+    #plugin-installed-view { display: grid; gap: 22px; }
+    .plugin-page-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
     }
-    .plugin-card {
+    .plugin-page-copy { display: grid; gap: 2px; min-width: 0; }
+    .plugin-page-title-row { display: flex; align-items: center; gap: 4px; }
+    .plugin-page-title-row h3 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3; }
+    .plugin-info {
+      width: 24px;
+      min-width: 24px;
+      min-height: 24px;
+      padding: 2px;
+      border-radius: 6px;
+      color: var(--caption);
+    }
+    .plugin-page-copy .caption { margin: 0; font-size: 13px; }
+    .plugin-page-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+    .plugin-refresh {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: var(--card);
+      font-size: 14px;
+    }
+    .plugin-page-actions .plugin-refresh { background: var(--card); }
+    .plugin-add { position: relative; display: flex; }
+    .plugin-add-main,
+    .plugin-add-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 6px 12px;
+      border: 1px solid var(--label);
+      background: var(--label);
+      color: var(--bg);
+      font-size: 14px;
+    }
+    .plugin-add-main { border-radius: 8px 0 0 8px; border-right: 0; }
+    .plugin-add-toggle {
+      padding: 6px 7px;
+      border-radius: 0 8px 8px 0;
+      border-left: 1px solid color-mix(in srgb, var(--bg) 28%, transparent);
+    }
+    .plugin-add-toggle .lucide { --od-icon-size: 14px; }
+    .plugin-add-main:hover, .plugin-add-toggle:hover { opacity: 0.88; }
+    .plugin-add-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 20;
       display: grid;
-      grid-template-rows: 1fr auto;
-      gap: 12px;
-      padding: 16px;
-      border-radius: var(--radius-md);
+      gap: 2px;
+      width: min(340px, calc(100vw - 40px));
+      padding: 6px;
+      border-radius: 12px;
+      background: var(--menu);
+      color: var(--menu-text);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--menu-line);
+    }
+    .plugin-add-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      width: 100%;
+      padding: 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--menu-text);
+      text-align: left;
+    }
+    .plugin-add-item:hover { background: var(--menu-hover); }
+    .plugin-add-icon {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      flex: none;
+      border-radius: 8px;
+      background: var(--chip);
+      color: var(--secondary);
+    }
+    .plugin-add-copy { display: grid; gap: 2px; min-width: 0; }
+    .plugin-add-title { font-size: 14px; font-weight: 600; line-height: 1.4; }
+    .plugin-add-desc { color: var(--menu-muted); font-size: 12px; line-height: 1.45; }
+    .plugin-tabs {
+      display: inline-flex;
+      justify-self: start;
+      width: fit-content;
+      align-self: flex-start;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--chip);
+    }
+    .plugin-tab {
+      min-height: 32px;
+      padding: 5px 18px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--secondary);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .plugin-tab[aria-selected="true"] {
+      background: var(--card);
+      color: var(--label);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+    .plugin-section { display: grid; gap: 9px; }
+    .plugin-section h4 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.4; }
+    .plugin-section > .caption { margin: 0; font-size: 13px; }
+    .plugin-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .plugin-more {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 4px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--caption);
+      font-size: 13px;
+    }
+    .plugin-more .lucide { --od-icon-size: 14px; }
+    .plugin-market-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .plugin-market-card {
+      display: grid;
+      gap: 4px;
+      align-content: start;
+      padding: 14px 16px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--label);
+      text-align: left;
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .plugin-market-card.is-selected { box-shadow: 0 0 0 2px var(--label); }
+    .plugin-market-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; line-height: 1.4; }
+    .plugin-market-desc { color: var(--caption); font-size: 13px; line-height: 1.5; }
+    .plugin-market-desc code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--chip);
+      color: var(--secondary);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .plugin-list { display: grid; gap: 2px; }
+    .plugin-row { display: flex; align-items: center; gap: 10px; }
+    .plugin-row-main {
+      display: flex;
+      flex: 1 1 auto;
+      align-items: flex-start;
+      gap: 14px;
+      min-width: 0;
+      padding: 8px 8px 8px 6px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--label);
+      text-align: left;
+    }
+    .plugin-row-main:hover { background: var(--hover); }
+    .plugin-icon {
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      flex: none;
+      border-radius: 10px;
+      background: color-mix(in srgb, currentColor 12%, transparent);
+    }
+    .plugin-icon .lucide { --od-icon-size: 20px; }
+    .plugin-icon.is-blue { color: #3b6fe0; }
+    .plugin-icon.is-teal { color: #0f9d7a; }
+    .plugin-icon.is-purple { color: #7c5cff; }
+    .plugin-icon.is-orange { color: #d97706; }
+    .plugin-row-copy { display: grid; gap: 3px; min-width: 0; }
+    .plugin-row-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; line-height: 1.4; }
+    .plugin-row-desc { color: var(--caption); font-size: 13px; line-height: 1.5; }
+    .plugin-row-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+    .plugin-row-actions .secondary,
+    .plugin-row-actions .primary { min-height: 32px; padding: 4px 11px; font-size: 13px; }
+    .plugin-badge {
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: color-mix(in srgb, var(--info) 12%, transparent);
+      color: var(--info);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .plugin-row .switch { width: 40px; height: 28px; }
+    .plugin-row .switch-track { width: 36px; height: 20px; }
+    .plugin-row .switch-thumb { width: 14px; height: 14px; }
+    .plugin-detail {
+      padding: 18px;
+      border-radius: 12px;
       background: var(--card);
       box-shadow: 0 0 0 1px var(--border-soft);
     }
-    .plugin-open {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 6px;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      text-align: left;
-      color: var(--label);
+    .plugin-detail-back { margin-bottom: 14px; }
+    .plugin-detail-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
+    .plugin-detail-head > div { min-width: 0; }
+    .plugin-detail-head .plugin-icon { width: 44px; height: 44px; }
+    .plugin-detail h2 { margin: 0 0 4px; font-size: 20px; line-height: 1.35; }
+    .plugin-detail-head .caption { margin: 0; }
+    .plugin-detail .plugin-meta { margin: 0 0 4px; }
+    .plugin-detail > .caption { margin: 0 0 12px; }
+    .plugin-detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .plugin-detail-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+    .plugin-rich-detail {
+      padding: 18px 20px 28px;
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border-soft);
     }
-    .plugin-title { font-weight: 600; }
-    .plugin-desc { color: var(--secondary); }
-    .plugin-meta { color: var(--caption); font-family: var(--mono); font-size: 12px; }
-    .chip {
-      display: block;
+    .plugin-rich-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .plugin-rich-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .plugin-rich-icon .lucide { --od-icon-size: 28px; }
+    .plugin-rich-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+    .plugin-uninstall {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 4px 10px;
+      border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--danger);
+      font-size: 13px;
+    }
+    .plugin-uninstall .lucide { --od-icon-size: 14px; }
+    .plugin-uninstall:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+    .plugin-rich-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .plugin-rich-title-row h2 { margin: 0; font-size: 24px; line-height: 1.3; }
+    .plugin-version-chip {
       padding: 2px 8px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
+      border-radius: 6px;
+      background: var(--chip);
       color: var(--secondary);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .plugin-rich-package { margin: 5px 0 0; color: var(--caption); font-family: var(--mono); font-size: 12px; }
+    .plugin-rich-tagline { margin: 10px 0 0; color: var(--secondary); font-size: 15px; line-height: 1.55; }
+    .plugin-rich-rule { height: 1px; margin: 20px 0; background: var(--border-soft); }
+    .plugin-readme h3 { margin: 22px 0 10px; font-size: 19px; line-height: 1.35; }
+    .plugin-readme h3:first-child { margin-top: 0; }
+    .plugin-readme p { margin: 0 0 8px; color: var(--secondary); font-size: 14px; line-height: 1.65; }
+    .plugin-readme .plugin-readme-lead { font-size: 15px; }
+    .plugin-readme p.plugin-readme-links { color: var(--caption); font-size: 13px; }
+    .plugin-badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
+    .plugin-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border-radius: 6px;
+      background: var(--label);
+      color: var(--bg);
       font-size: 12px;
       line-height: 1.4;
     }
-    .plugin-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .plugin-badge-pill strong { color: inherit; font-weight: 600; }
+    .plugin-badge-pill.is-green strong { color: #63e6a5; }
+    .plugin-badge-pill.is-blue strong { color: #8bb6ff; }
+    .plugin-badge-pill.is-muted { background: var(--chip); color: var(--secondary); }
+    .plugin-readme blockquote {
+      margin: 16px 0;
+      padding: 8px 0 8px 14px;
+      border-left: 2px solid var(--border);
+      color: var(--caption);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .plugin-readme ul { margin: 0 0 16px; padding-left: 20px; color: var(--secondary); font-size: 14px; line-height: 1.7; }
+    .plugin-readme li { margin-bottom: 4px; }
+    .plugin-entry-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 18px;
+      padding: 16px 0 0;
+      border-top: 1px solid var(--border-soft);
+    }
+    .plugin-entry-row h4 { margin: 0 0 4px; font-size: 14px; }
+    .plugin-entry-row p { margin: 0; color: var(--caption); font-size: 13px; }
+    .plugin-segmented { display: inline-flex; flex: none; padding: 3px; border-radius: 8px; background: var(--chip); }
+    .plugin-segmented button {
+      min-height: 30px;
+      padding: 4px 12px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--secondary);
+      font-size: 13px;
+    }
+    .plugin-segmented button[aria-pressed="true"] { background: var(--card); color: var(--label); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+    .plugin-component-head { display: flex; align-items: center; gap: 8px; margin: 24px 0 4px; font-size: 14px; font-weight: 600; }
+    .plugin-component-head span + span { color: var(--caption); font-size: 12px; font-weight: 400; }
+    .plugin-component-row { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border-soft); }
+    .plugin-component-row .plugin-row-copy { flex: 1 1 auto; }
+    .plugin-row-meta { color: var(--caption); font-family: var(--mono); font-size: 12px; line-height: 1.45; }
+    .plugin-component-status { display: inline-flex; align-items: center; gap: 6px; flex: none; color: var(--ok); font-size: 12px; }
+    .plugin-component-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .plugin-component-status.is-off { color: var(--caption); }
+    .plugin-version-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; }
+    .plugin-version-head h4 { margin: 0; font-size: 15px; }
+    .plugin-recheck {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 4px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--secondary);
+      font-size: 13px;
+    }
+    .plugin-recheck .lucide { --od-icon-size: 14px; }
+    .plugin-latest {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: var(--bg);
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .plugin-latest-icon {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      flex: none;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--ok) 14%, transparent);
+      color: var(--ok);
+    }
+    .plugin-latest-copy { display: grid; gap: 2px; }
+    .plugin-latest-copy strong { font-size: 14px; font-weight: 600; }
+    .plugin-latest-copy span { color: var(--caption); font-size: 12px; }
+    .plugin-source-info { margin-top: 22px; }
+    .plugin-source-info h4 { margin: 0 0 6px; font-size: 15px; }
+    .plugin-source-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid var(--border-soft); font-size: 14px; }
+    .plugin-source-row > span:first-child { color: var(--secondary); }
+    .plugin-source-row code {
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--chip);
+      color: var(--secondary);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .plugin-market-search { width: min(360px, 100%); margin-bottom: 12px; }
+    .plugin-config .empty { margin: 0 4px; }
+    .plugin-meta { color: var(--caption); font-family: var(--mono); font-size: 12px; }
     .primary, .secondary, .danger {
       min-height: 36px;
       padding: 6px 12px;
@@ -885,8 +1485,6 @@
     .primary { background: var(--send); color: var(--on-send); border-color: var(--send); }
     .secondary { background: transparent; color: var(--label); border-color: var(--border); }
     .danger { background: transparent; color: var(--danger); border-color: var(--danger); }
-    .detail-back { margin-bottom: 12px; }
-    .detail h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.35; }
     .inspector {
       grid-column: 2;
       grid-row: 1 / span 2;
@@ -1145,7 +1743,11 @@
         gap: 4px;
         padding: 44px 12px 8px;
         border-bottom: 1px solid var(--border-soft);
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
       }
+      .settings-nav::-webkit-scrollbar { display: none; }
       .settings-group { display: none; }
       .set-nav { width: auto; flex: none; }
       .settings-body { padding: 16px; }
@@ -1166,7 +1768,7 @@
     .empty { margin: 24px 0; color: var(--secondary); }
 
     @media (hover: hover) {
-      .brand-btn:hover, .side-row:hover, .nav-row:hover, .text-btn:hover, .icon-btn:hover, .tab:hover, .disclosure:hover, .picker-trigger:hover, .set-nav:hover, .ghost-field:hover, .set-edit:hover {
+      .brand-btn:hover, .side-row:hover, .nav-row:hover, .text-btn:hover, .icon-btn:hover, .disclosure:hover, .picker-trigger:hover, .set-nav:hover, .ghost-field:hover, .set-edit:hover {
         background: var(--hover);
       }
       .picker-option:hover { background: var(--hover); }
@@ -1174,16 +1776,11 @@
       .new-session:hover, .add:hover, .user-chip:hover, .home-suggest button:hover { background: var(--hover); }
       .send:hover:not(.is-idle) { background: var(--send-hover); }
       .primary:hover { background: var(--send-hover); }
-      .plugin-card:hover { box-shadow: 0 0 0 1px var(--border); }
+      .plugin-market-card:not(.is-selected):hover { box-shadow: 0 0 0 1px var(--border); }
     }
-    @media (max-width: 1199px) {
-      .plugin-grid { grid-template-columns: 1fr; }
-    }
-    @media (min-width: 768px) {
-      .plugin-grid { grid-template-columns: 1fr 1fr; }
-    }
-    @media (min-width: 1200px) {
-      .plugin-grid { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 900px) {
+      .plugin-page-head { flex-direction: column; align-items: stretch; }
+      .plugin-page-actions { justify-content: flex-end; }
     }
     @media (max-width: 1023px) {
       .app, .main.has-inspector { grid-template-columns: minmax(0, 1fr); }
@@ -1219,6 +1816,17 @@
     }
     @media (max-width: 767px) {
       .top-actions .text-btn span.label { display: none; }
+      .plugin-market-grid { grid-template-columns: 1fr; }
+      .plugin-page-actions { justify-content: flex-start; }
+      .plugin-row { align-items: flex-start; }
+      .plugin-row-actions { align-self: center; }
+      .plugin-rich-detail { padding: 16px; }
+      .plugin-rich-actions { flex-wrap: wrap; justify-content: flex-end; }
+      .plugin-rich-title-row h2 { font-size: 21px; }
+      .plugin-entry-row { flex-direction: column; }
+      .plugin-segmented { width: 100%; }
+      .plugin-segmented button { flex: 1 1 0; }
+      .plugin-component-row { flex-wrap: wrap; }
       .composer-row { flex-wrap: wrap; }
       .composer-end { flex: none; }
       .picker-trigger { max-width: min(220px, 100%); }
@@ -1233,18 +1841,69 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="assets/replica.css">
 </head>
 <body>
+  <svg xmlns="http://www.w3.org/2000/svg" class="icon-sprite" aria-hidden="true">
+<symbol id="i-panel-left" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 1.5H2.5C1.94772 1.5 1.5 1.94772 1.5 2.5V13.5C1.5 14.0523 1.94772 14.5 2.5 14.5H13.5C14.0523 14.5 14.5 14.0523 14.5 13.5V2.5C14.5 1.94772 14.0523 1.5 13.5 1.5Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M5.5 1.5V14.5" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-new-chat" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2.37091 11.2501C1.58745 9.89288 1.32067 8.29835 1.61969 6.76006C1.91872 5.22177 2.76342 3.8433 3.99826 2.87846C5.2331 1.91362 6.77494 1.42737 8.33988 1.50925C9.90482 1.59113 11.3875 2.23562 12.5149 3.32406C13.6425 4.41269 14.3387 5.87206 14.4754 7.4334C14.612 8.99474 14.18 10.5529 13.2587 11.8209C12.3375 13.0888 10.9891 13.9813 9.46194 14.3337C8.18691 14.628 6.85895 14.5294 5.64989 14.0605C5.1712 13.8748 4.76962 13.4932 4.26534 13.3967C3.67413 13.2835 2.95257 13.5598 2.03794 14.3337" stroke="currentColor" stroke-width="1.25"/></path><path d="M8 5V11" stroke="currentColor" stroke-width="1.25"/></path><path d="M5 8H11" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-plugin" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M7.84457 5.06199C11.6605 4.93876 14.7962 6.14848 14.8484 7.76397C14.8875 8.97461 13.1838 10.0696 10.7215 10.5942" stroke="currentColor" stroke-width="1.25"/></path><path d="M5.12742 8.07731C5.00419 4.26138 6.21391 1.12568 7.8294 1.07351C9.04004 1.03441 10.135 2.73808 10.6596 5.20037" stroke="currentColor" stroke-width="1.25"/></path><path d="M8.02457 10.6802C4.20865 10.8034 1.07294 9.5937 1.02077 7.97821C0.981678 6.76758 2.68535 5.67262 5.14763 5.14798" stroke="currentColor" stroke-width="1.25"/></path><path d="M10.7476 7.89535C10.8708 11.7113 9.66109 14.847 8.0456 14.8991C6.83496 14.9382 5.74 13.2346 5.21536 10.7723" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-automation" viewBox="0 0 17 17" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4.09372 11.9895L3.11865 14.0387" stroke="currentColor" stroke-width="1.25"/></path><path d="M12.1392 11.9895L13.1143 14.0387" stroke="currentColor" stroke-width="1.25"/></path><path d="M8.11646 4.78442V8.03442L10.6165 9.53442" stroke="currentColor" stroke-width="1.25"/></path><path d="M8.11646 13.4094C11.154 13.4094 13.6165 10.947 13.6165 7.90942C13.6165 4.87186 11.154 2.40942 8.11646 2.40942C5.07889 2.40942 2.61646 4.87186 2.61646 7.90942C2.61646 10.947 5.07889 13.4094 8.11646 13.4094Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M1.75952 4.74323C2.30657 3.65639 3.12646 2.73047 4.12926 2.05542" stroke="currentColor" stroke-width="1.25"/></path><path d="M14.3345 4.74323C13.7874 3.65639 12.9675 2.73047 11.9647 2.05542" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-apps-add" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2.25" y="2.25" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.25"/></rect><rect x="2.25" y="9.75" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.25"/></rect><rect x="9.75" y="9.75" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.25"/></rect><path d="M11.75 1.75v5M9.25 4.25h5" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6.58727 11.8586C9.55061 11.8586 11.9529 9.45637 11.9529 6.49304C11.9529 3.5297 9.55061 1.12744 6.58727 1.12744C3.62394 1.12744 1.22168 3.5297 1.22168 6.49304C1.22168 9.45637 3.62394 11.8586 6.58727 11.8586Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M10.2991 10.3933L14.7783 14.8725" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-sliders" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2.3 5h5.85M12.05 5h1.65" stroke="currentColor" stroke-width="1.25"/></path><circle cx="9.95" cy="5" r="1.45" stroke="currentColor" stroke-width="1.25"/></circle><path d="M2.3 11h1.65M7.85 11h5.85" stroke="currentColor" stroke-width="1.25"/></path><circle cx="5.75" cy="11" r="1.45" stroke="currentColor" stroke-width="1.25"/></circle></symbol>
+<symbol id="i-project-add" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5.54492 2.06738C5.91034 2.06754 6.26318 2.20149 6.53711 2.44336L7.94043 3.68164V4.7998C7.71462 4.74105 7.50367 4.63139 7.32617 4.47461L5.87598 3.19238C5.78477 3.11185 5.66658 3.06754 5.54492 3.06738H2.94922C2.67322 3.06738 2.44946 3.29145 2.44922 3.56738V12.4326C2.44927 12.7087 2.67311 12.9326 2.94922 12.9326H12.9326C13.2086 12.9325 13.4326 12.7086 13.4326 12.4326V8.53613H14.4326V12.4326C14.4326 13.2609 13.7609 13.9325 12.9326 13.9326H2.94922C2.12083 13.9326 1.44927 13.261 1.44922 12.4326V3.56738C1.44946 2.73916 2.12094 2.06738 2.94922 2.06738H5.54492Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path><path d="M9.75977 4.50208H14.5509" stroke="currentColor" stroke-width="1.25"/></path><path d="M12.1492 6.89758L12.1492 2.10642" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-folder-open" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2.55912 7.93683C2.67584 7.49906 3.0723 7.19446 3.52536 7.19446H13.6491C14.3061 7.19446 14.7846 7.81725 14.6153 8.45209L13.4411 12.856C13.3244 13.2938 12.9279 13.5984 12.4748 13.5984H2.35113C1.69411 13.5984 1.21562 12.9756 1.38489 12.3407L2.55912 7.93683Z" fill="currentColor" opacity="0.16" stroke="none" stroke-width="1.25"/></path><path d="M13.6491 6.69446C14.6346 6.69453 15.3522 7.62895 15.0983 8.58118L13.9245 12.9845C13.7494 13.6412 13.1539 14.0988 12.4743 14.0988H2.35126C1.36574 14.0988 0.648153 13.1643 0.902044 12.212L2.07587 7.80774C2.25102 7.15128 2.84567 6.69455 3.52509 6.69446H13.6491ZM3.52509 7.69446C3.29865 7.69455 3.10004 7.84674 3.04169 8.06555L1.86786 12.4698C1.78345 12.7872 2.02285 13.0988 2.35126 13.0988H12.4743C12.7007 13.0988 12.8992 12.9463 12.9577 12.7277L14.1325 8.32336C14.2171 8.00598 13.9776 7.69453 13.6491 7.69446H3.52509Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path><path d="M4.7666 1.90137C5.13227 1.90144 5.48571 2.03525 5.75977 2.27734L7.27246 3.61328C7.36379 3.69382 7.48174 3.73828 7.60352 3.73828H12.3994C13.2276 3.73841 13.8993 4.41005 13.8994 5.23828V6.7168C13.8183 6.70327 13.735 6.69436 13.6494 6.69434H12.8994V5.23828C12.8993 4.96233 12.6754 4.73841 12.3994 4.73828H7.60352C7.23781 4.73828 6.88446 4.60438 6.61035 4.3623L5.09766 3.02637C5.00636 2.94576 4.88838 2.90144 4.7666 2.90137H2.0498C1.77366 2.90137 1.5498 3.12523 1.5498 3.40137V9.78223L0.902344 12.2119C0.648452 13.1642 1.36604 14.0986 2.35156 14.0986H2.0498C1.2214 14.0986 0.549838 13.427 0.549805 12.5986V3.40137C0.549805 2.57294 1.22138 1.90137 2.0498 1.90137H4.7666Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path></symbol>
+<symbol id="i-folder-close" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1.50439 3.11059C1.50439 2.55831 1.95211 2.1106 2.50439 2.1106H5.43389C5.67773 2.1106 5.91318 2.19969 6.09593 2.36113L7.71649 3.79265C7.89924 3.95409 8.1347 4.04319 8.3785 4.04319H13.4958C14.0481 4.04319 14.4958 4.4909 14.4958 5.04319V12.8894C14.4958 13.4417 14.0481 13.8894 13.4958 13.8894H2.50439C1.95211 13.8894 1.50439 13.4417 1.50439 12.8894V4.04319V3.11059Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M3.63501 7.66614H12.3647" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-ellipsis" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9C3.55228 9 4 8.55228 4 8C4 7.44772 3.55228 7 3 7C2.44772 7 2 7.44772 2 8C2 8.55228 2.44772 9 3 9Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path><path d="M8 9C8.55228 9 9 8.55228 9 8C9 7.44772 8.55228 7 8 7C7.44772 7 7 7.44772 7 8C7 8.55228 7.44772 9 8 9Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path><path d="M13 9C13.5523 9 14 8.55228 14 8C14 7.44772 13.5523 7 13 7C12.4477 7 12 7.44772 12 8C12 8.55228 12.4477 9 13 9Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6L7.29289 9.29289C7.68342 9.68342 8.31658 9.68342 8.70711 9.29289L12 6" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2V14" stroke="currentColor" stroke-width="1.25"/></path><path d="M2 8H14" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-preset" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6.51867 12.3282C7.29816 12.6011 8.16475 12.6514 9.02269 12.4216C9.57879 12.2726 10.0784 12.0185 10.5087 11.6888C10.7819 12.0555 11.1606 12.3304 11.5913 12.4805C10.9688 13.029 10.2149 13.4478 9.35911 13.6771C8.13946 14.0038 6.90632 13.8971 5.82126 13.4533C6.15821 13.1562 6.4021 12.7652 6.51867 12.3282ZM9.17629 2.89409C11.1101 3.34433 12.739 4.81872 13.2889 6.87043C13.4219 7.3665 13.4811 7.8649 13.4774 8.35466C13.0924 8.13213 12.6422 8.01837 12.1741 8.05276L12.1711 8.05257C12.1539 7.77199 12.109 7.48889 12.0334 7.20684C11.6363 5.72533 10.5048 4.6372 9.13549 4.22844C9.25559 3.87667 9.29214 3.49087 9.22309 3.09892C9.2108 3.02922 9.19451 2.96108 9.17629 2.89409ZM4.7311 3.89107L4.78302 4.11879C4.87648 4.4488 5.04146 4.74263 5.25579 4.98896C3.98078 6.01355 3.35848 7.72904 3.8089 9.41059C3.81828 9.44559 3.82866 9.48025 3.83885 9.51479C3.38217 9.61268 2.98548 9.84137 2.68107 10.1556C2.63414 10.022 2.5897 9.88632 2.55244 9.74726C1.93301 7.43489 2.86717 5.07173 4.71504 3.76697L4.7311 3.89107Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path><path d="M7.99136 5.28105C8.87501 5.28105 9.59136 4.56471 9.59136 3.68105C9.59136 2.7974 8.87501 2.08105 7.99136 2.08105C7.1077 2.08105 6.39136 2.7974 6.39136 3.68105C6.39136 4.56471 7.1077 5.28105 7.99136 5.28105Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M3.94009 12.9417C4.82374 12.9417 5.54009 12.2254 5.54009 11.3417C5.54009 10.458 4.82374 9.7417 3.94009 9.7417C3.05643 9.7417 2.34009 10.458 2.34009 11.3417C2.34009 12.2254 3.05643 12.9417 3.94009 12.9417Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M12.0851 12.9417C12.9688 12.9417 13.6851 12.2254 13.6851 11.3417C13.6851 10.458 12.9688 9.7417 12.0851 9.7417C11.2015 9.7417 10.4851 10.458 10.4851 11.3417C10.4851 12.2254 11.2015 12.9417 12.0851 12.9417Z" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-send" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6.97211 1.94476C7.55785 1.35914 8.50767 1.35919 9.09343 1.94476L13.921 6.77228L13.2138 7.47939L8.38632 2.65187C8.19108 2.45682 7.87443 2.45677 7.67922 2.65187L2.74397 7.58711L2.03687 6.88L6.97211 1.94476Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path><path d="M7.97571 14.5732L8.02421 2.34139" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-clock" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M8 4.31V8.46L11 10.08" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-pin" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9.96976 1.70572L13.1554 3.93629L10.9019 8.12317L11.5158 11.605L10.7192 12.7427L2.52767 7.00693L3.3243 5.86922L6.80612 5.25528L9.96976 1.70572Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.25"/></path><path d="M6.05285 9.47511C6.27284 9.16094 6.70586 9.08458 7.02003 9.30457C7.3342 9.52455 7.41055 9.95757 7.19057 10.2717L3.98587 14.4708L3.21223 13.9291L6.05285 9.47511Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path></symbol>
+<symbol id="i-archive" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2.5H2.5C1.94772 2.5 1.5 2.94772 1.5 3.5V4.5C1.5 5.05228 1.94772 5.5 2.5 5.5H13.5C14.0523 5.5 14.5 5.05228 14.5 4.5V3.5C14.5 2.94772 14.0523 2.5 13.5 2.5Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M2.5 5.5V13.5C2.5 13.7652 2.60536 14.0196 2.79289 14.2071C2.98043 14.3946 3.23478 14.5 3.5 14.5H12.5C12.7652 14.5 13.0196 14.3946 13.2071 14.2071C13.3946 14.0196 13.5 13.7652 13.5 13.5V5.5" stroke="currentColor" stroke-width="1.25"/></path><path d="M6.5 9.5H9.5" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 8.5L5.49732 11.7473C5.90519 12.1552 6.57263 12.1344 6.95426 11.7018L13.75 4" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-paperclip" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12.75 4.5V9.5C12.75 10.7598 12.2496 11.968 11.3588 12.8588C10.468 13.7496 9.25978 14.25 8 14.25C6.74022 14.25 5.53204 13.7496 4.64124 12.8588C3.75045 11.968 3.25 10.7598 3.25 9.5V5C3.25 4.13805 3.59241 3.3114 4.2019 2.7019C4.8114 2.09241 5.63805 1.75 6.5 1.75C7.36195 1.75 8.1886 2.09241 8.7981 2.7019C9.40759 3.3114 9.75 4.13805 9.75 5V9.5C9.75 9.96413 9.56563 10.4092 9.23744 10.7374C8.90925 11.0656 8.46413 11.25 8 11.25C7.53587 11.25 7.09075 11.0656 6.76256 10.7374C6.43437 10.4092 6.25 9.96413 6.25 9.5V5.5" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-code" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6.27612 1.5L4.52612 14.5" stroke="currentColor" stroke-width="1.25"/></path><path d="M11.4739 1.5L9.72388 14.5" stroke="currentColor" stroke-width="1.25"/></path><path d="M2.39868 5.5H14.0681" stroke="currentColor" stroke-width="1.25"/></path><path d="M1.93188 10.5H13.6013" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-link" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6.59961 9.40051C6.82779 9.6334 7.10015 9.81842 7.40074 9.94472C7.70132 10.071 8.02409 10.1361 8.35013 10.1361C8.67618 10.1361 8.99894 10.071 9.29953 9.94472C9.60011 9.81842 9.87247 9.6334 10.1007 9.40051L12.9015 6.59967C13.3658 6.13541 13.6266 5.50572 13.6266 4.84915C13.6266 4.19258 13.3658 3.56289 12.9015 3.09863C12.4372 2.63436 11.8075 2.37354 11.151 2.37354C10.4944 2.37354 9.86472 2.63436 9.40045 3.09863L9.05034 3.44873" stroke="currentColor" stroke-width="1.25"/></path><path d="M9.40051 6.59959C9.17233 6.3667 8.89997 6.18169 8.59939 6.05538C8.2988 5.92907 7.97603 5.86401 7.64999 5.86401C7.32395 5.86401 7.00118 5.92907 6.70059 6.05538C6.40001 6.18169 6.12765 6.3667 5.89946 6.59959L3.09863 9.40043C2.63436 9.8647 2.37354 10.4944 2.37354 11.151C2.37354 11.8075 2.63436 12.4372 3.09863 12.9015C3.56289 13.3657 4.19258 13.6266 4.84915 13.6266C5.50572 13.6266 6.13541 13.3657 6.59967 12.9015L6.94978 12.5514" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-database" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13.1967 5.1869C13.7232 4.77378 14.0003 4.30517 14.0001 3.82819C14.0003 3.3512 13.7232 2.88259 13.1967 2.46947C12.6702 2.05635 11.9128 1.71328 11.0006 1.47475C10.0885 1.23621 9.05371 1.11062 8.00039 1.1106C6.94707 1.11057 5.9123 1.23612 5.00009 1.47461C4.08742 1.71301 3.32948 2.05604 2.80249 2.46919C2.2755 2.88235 1.99805 3.35106 1.99805 3.82819C1.99805 4.30531 2.2755 4.77402 2.80249 5.18718C3.32948 5.60033 4.08742 5.94336 5.00009 6.18176C5.9123 6.42025 6.94707 6.5458 8.00039 6.54578C9.05371 6.54575 10.0885 6.42016 11.0006 6.18163C11.9128 5.94309 12.6702 5.60002 13.1967 5.1869Z" stroke="currentColor" stroke-width="1.25"/></path><path d="M2 3.80371V11.7848" stroke="currentColor" stroke-width="1.25"/></path><path d="M14 3.80371V11.7848" stroke="currentColor" stroke-width="1.25"/></path><path d="M2 7.81396C2 8.60524 2.63214 9.36411 3.75736 9.92363C4.88258 10.4832 6.4087 10.7975 8 10.7975C9.5913 10.7975 11.1174 10.4832 12.2426 9.92363C13.3679 9.36411 14 8.60524 14 7.81396" stroke="currentColor" stroke-width="1.25"/></path><path d="M2 11.7847C2 12.6081 2.63214 13.3977 3.75736 13.98C4.88258 14.5622 6.4087 14.8893 8 14.8893C9.5913 14.8893 11.1174 14.5622 12.2426 13.98C13.3679 13.3977 14 12.6081 14 11.7847" stroke="currentColor" stroke-width="1.25"/></path></symbol>
+<symbol id="i-gauge" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4041 13.096C2.49514 12.187 1.87614 11.0288 1.62537 9.76798C1.37459 8.50716 1.50331 7.20028 1.99525 6.01261C2.48719 4.82494 3.32025 3.80981 4.3891 3.09557C5.45795 2.38134 6.71458 2.00008 8.0001 2C9.28563 2.00008 10.5423 2.38134 11.6111 3.09557C12.68 3.80981 13.513 4.82494 14.005 6.01261C14.4969 7.20028 14.6256 8.50716 14.3748 9.76798C14.1241 11.0288 13.5051 12.187 12.5961 13.096" stroke="currentColor" stroke-width="1.25"/></path><path d="M8 8.49994L11.6114 4.88855" stroke="currentColor" stroke-width="1.25"/></path><path d="M8 9.75C8.69036 9.75 9.25 9.19036 9.25 8.5C9.25 7.80964 8.69036 7.25 8 7.25C7.30964 7.25 6.75 7.80964 6.75 8.5C6.75 9.19036 7.30964 9.75 8 9.75Z" fill="currentColor" stroke="none" stroke-width="1.25"/></path></symbol>
+<symbol id="i-perm-readonly" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5.08545 8.13775L7.18455 10.2368C7.26636 10.3187 7.4003 10.3142 7.47649 10.2271L11.5148 5.61194" stroke="currentColor" stroke-width="1.25"/>
+      <path d="M6.59624 2.14853C7.50155 1.80917 8.49914 1.80919 9.40444 2.14859L13.9245 3.84317V7.11961C13.9245 11.6089 10.5565 13.5975 8.00035 14.5779C5.44423 13.5975 2.07544 11.6089 2.07544 7.11961V3.84317L6.59624 2.14853Z" stroke="currentColor" strokeLinejoin="round" stroke-width="1.25"/>
+    </symbol>
+<symbol id="i-perm-workspace" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.4209 1.68067C7.43922 1.299 8.56177 1.29898 9.58008 1.68067L14.0996 3.375C14.2946 3.44811 14.4236 3.63455 14.4238 3.84278V6.89063C14.1115 6.71853 13.7761 6.58312 13.4238 6.48926V4.18946L9.22852 2.61621C8.43657 2.31947 7.56341 2.31939 6.77148 2.61621L2.5752 4.18946V7.11914C2.5752 11.1796 5.52369 13.056 8 14.0391C8.27653 13.9293 8.55827 13.8067 8.8418 13.6729C9.07101 13.9468 9.33228 14.1929 9.62012 14.4053C9.12409 14.6579 8.63578 14.8696 8.17871 15.0449C8.0637 15.0889 7.93628 15.0889 7.82129 15.0449C5.22011 14.0472 1.5752 11.9381 1.5752 7.11914V3.84278C1.57541 3.63469 1.70463 3.44821 1.89941 3.375L6.4209 1.68067Z" fill="currentColor" stroke="none" stroke-width="1.25"/>
+      <path d="M5.26392 6.60339H10.7361" stroke="currentColor" stroke-width="1.25"/>
+      <path d="M5.26392 9.86902H8.32833" stroke="currentColor" stroke-width="1.25"/>
+      <path d="M10.0317 13.2229C10.263 13.3929 10.4943 13.563 10.7256 13.733C10.7932 13.6482 10.8608 13.5634 10.9284 13.4786C12.1455 11.9522 13.3626 10.4258 14.5798 8.89935C14.6474 8.81455 14.715 8.72975 14.7826 8.64495C14.4143 8.37419 14.046 8.10344 13.6777 7.83268C13.6169 7.92252 13.5562 8.01236 13.4954 8.10219C12.4016 9.71926 11.3078 11.3363 10.214 12.9534C10.1532 13.0432 10.0924 13.1331 10.0317 13.2229Z" fill="currentColor" stroke="none" stroke-width="1.25"/>
+      <path d="M12.6516 12.6696C12.6516 12.925 12.6516 13.1804 12.6516 13.4359C12.6952 13.4378 12.7387 13.4398 12.7823 13.4417C13.5663 13.4768 14.3504 13.5118 15.1345 13.5469C15.178 13.5488 15.2216 13.5508 15.2651 13.5527C15.2651 13.2194 15.2651 12.8861 15.2651 12.5527C15.2216 12.5547 15.178 12.5566 15.1345 12.5586C14.3504 12.5936 13.5663 12.6287 12.7823 12.6637C12.7387 12.6657 12.6952 12.6676 12.6516 12.6696Z" fill="currentColor" stroke="none" stroke-width="1.25"/>
+    </symbol>
+<symbol id="i-perm-full" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.59624 2.14853C7.50155 1.80917 8.49914 1.80919 9.40444 2.14859L13.9245 3.84317V7.11961C13.9245 11.6089 10.5565 13.5975 8.00035 14.5779C5.44423 13.5975 2.07544 11.6089 2.07544 7.11961V3.84317L6.59624 2.14853Z" stroke="currentColor" strokeLinejoin="round" stroke-width="1.25"/>
+      <path d="M8 4.39209V9.89209" stroke="currentColor" stroke-width="1.25"/>
+      <path d="M8 10.8081V11.8081" stroke="currentColor" stroke-width="1.25"/>
+    </symbol>
+<symbol id="i-perm-auto" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.59624 2.14853C7.50155 1.80917 8.49914 1.80919 9.40444 2.14859L13.9245 3.84317V7.11961C13.9245 11.6089 10.5565 13.5975 8.00035 14.5779C5.44423 13.5975 2.07544 11.6089 2.07544 7.11961V3.84317L6.59624 2.14853Z" stroke="currentColor" strokeLinejoin="round" stroke-width="1.25"/>
+      <path d="M5.75 10.15L8 4.95L10.25 10.15M6.43 8.59H9.57" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" stroke-width="1.25"/>
+    </symbol>
+<symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" fill="none" stroke="currentColor" stroke-width="1.75"/></symbol>
+<symbol id="i-stop" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="3" fill="currentColor" stroke="none" stroke-width="1.25"/></symbol>
+<symbol id="i-panel-right" viewBox="0 0 16 16" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 1.5H2.5C1.94772 1.5 1.5 1.94772 1.5 2.5V13.5C1.5 14.0523 1.94772 14.5 2.5 14.5H13.5C14.0523 14.5 14.5 14.0523 14.5 13.5V2.5C14.5 1.94772 14.0523 1.5 13.5 1.5Z" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M10.5 1.5V14.5" fill="none" stroke="currentColor" stroke-width="1.25"/></symbol>
+</svg>
   <button type="button" class="skip" data-action="skip">跳到主内容</button>
   <div class="shell">
     <header class="framebar">
-      <nav class="menu-bar" aria-label="主菜单">
+      <div class="frame-strip">
         <button type="button" class="frame-fold" id="frame-toggle" data-action="toggle-sidebar" aria-label="收起侧边栏">
-          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 4v16" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-panel-left"/></svg>
         </button>
-        <div class="app-menu">
-          <button type="button" class="menu-item" id="menu-app" data-action="toggle-app-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="app-menu">应用</button>
-          <div class="app-menu-pop" id="app-menu" role="menu" aria-labelledby="menu-app" hidden>
+        <nav class="menu-bar" aria-label="主菜单">
+          <div class="app-menu">
+            <button type="button" class="menu-item" id="menu-app" data-action="toggle-app-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="app-menu">应用</button>
+            <div class="app-menu-pop" id="app-menu" role="menu" aria-labelledby="menu-app" hidden>
             <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">打开 DSH NEXT</button>
             <button type="button" class="app-menu-item" role="menuitem" data-action="reload-ui">重新加载界面</button>
             <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">退出并重启</button>
@@ -1269,77 +1928,116 @@
               <span>退出</span>
               <span class="app-menu-kbd">Ctrl+Q</span>
             </button>
+            </div>
           </div>
-        </div>
-        <button type="button" class="menu-item">编辑</button>
-        <button type="button" class="menu-item" id="menu-plugins" data-action="open-plugins">插件市场</button>
-        <button type="button" class="menu-item">帮助</button>
-        <button type="button" class="menu-item">关于</button>
-      </nav>
+          <button type="button" class="menu-item" data-action="app-note">编辑</button>
+        </nav>
+      </div>
       <div class="window-controls">
         <button type="button" class="win-btn" data-action="window-control" aria-label="最小化">
-          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
         </button>
         <button type="button" class="win-btn" data-action="window-control" aria-label="最大化">
-          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.25" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
         </button>
         <button type="button" class="win-btn is-close" data-action="window-control" aria-label="关闭">
-          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
         </button>
       </div>
     </header>
-  <div class="app" id="app">
-    <aside class="sidebar" id="sidebar">
-      <div class="od-row">
-        <button type="button" class="brand-btn od-fill" data-action="new-session" aria-label="deepseek HARNESS，新建会话">
-          <img class="brand-mark" src="assets/deepseek-mark.svg" width="22" height="22" alt="">
-          <span class="brand-copy rail-hide">
-            <span class="brand-name">deepseek</span>
-            <span class="brand-harness">HARNESS</span>
-          </span>
-        </button>
-      </div>
-      <button type="button" class="new-session" data-action="new-session">
-        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
-        <span class="rail-hide">新会话</span>
-        <kbd class="kbd rail-hide" aria-hidden="true">Ctrl N</kbd>
-      </button>
-      <div class="side-scroll od-scroll" id="session-mount"></div>
-      <div class="user-bar">
-        <button type="button" class="user-chip" data-action="open-settings" aria-label="用户 Nato，打开设置">
-          <span class="user-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2" fill="currentColor"/><path d="M5.5 18.5c1.4-2.4 3.6-3.5 6.5-3.5s5.1 1.1 6.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          </span>
-          <span class="user-name">Nato</span>
-        </button>
-        <div class="user-side">
-          <button type="button" class="icon-btn" data-action="open-messages" aria-label="消息中心">
-            <span class="lucide icon-16" style="--icon: url('assets/icons/message-square.svg')" aria-hidden="true"></span>
+    <div class="app" id="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand-row">
+          <button type="button" class="brand-btn" data-action="new-session" aria-label="deepseek HARNESS，新建会话">
+            <svg class="brand-fish" viewBox="0 0 23.16 17.04" aria-hidden="true"><path d="M22.9168 1.43018C22.6713 1.31018 22.5658 1.53918 22.4223 1.65519C22.3733 1.69269 22.3318 1.74169 22.2903 1.78669C21.9317 2.1697 21.5127 2.42121 20.9657 2.39121C20.1657 2.34621 19.4827 2.59771 18.8787 3.20973C18.7502 2.45521 18.3236 2.0047 17.6746 1.71569C17.3351 1.56568 16.9916 1.41518 16.7536 1.08867C16.5876 0.856163 16.5421 0.597155 16.4591 0.341647C16.4061 0.187643 16.3536 0.0301382 16.1761 0.00363739C15.9836 -0.0263635 15.9081 0.135141 15.8326 0.270145C15.5306 0.822162 15.4136 1.43018 15.4251 2.0462C15.4516 3.43174 16.0366 4.53527 17.1991 5.3203C17.3311 5.4103 17.3651 5.5003 17.3236 5.63181C17.2441 5.90231 17.1501 6.16482 17.0671 6.43533C17.0141 6.60784 16.9351 6.64584 16.7501 6.57033C16.1121 6.30383 15.5611 5.90931 15.074 5.4328C14.2475 4.63328 13.5 3.75075 12.568 3.05973C12.349 2.89822 12.13 2.74822 11.9034 2.60522C10.9524 1.68169 12.028 0.923165 12.277 0.833162C12.5375 0.739159 12.3675 0.41615 11.5259 0.42015C10.6844 0.42365 9.91439 0.705658 8.93286 1.08117C8.78935 1.13767 8.63835 1.17867 8.48384 1.21267C7.59332 1.04367 6.66829 1.00617 5.70226 1.11517C3.88321 1.31768 2.43016 2.1777 1.36213 3.64575C0.0790928 5.4103 -0.222916 7.41536 0.146595 9.50642C0.535106 11.7105 1.66014 13.535 3.38869 14.9616C5.18125 16.4406 7.24581 17.1657 9.60138 17.0266C11.0319 16.9441 12.6245 16.7526 14.421 15.2321C14.874 15.4576 15.3496 15.5476 16.1381 15.6151C16.7456 15.6716 17.3306 15.5851 17.7836 15.4911C18.4931 15.3411 18.4441 14.6841 18.1876 14.5636C16.1081 13.595 16.5646 13.9891 16.1496 13.67C17.2061 12.42 18.8202 10.1979 19.3182 7.17235C19.3672 6.83834 19.4297 6.36783 19.4222 6.09732C19.4182 5.93231 19.4562 5.86831 19.6447 5.84931C20.1657 5.78931 20.6712 5.64681 21.1357 5.3913C22.4833 4.65528 23.0268 3.44624 23.1548 1.9972C23.1738 1.77569 23.1508 1.54668 22.9168 1.43018ZM11.1749 14.4736C9.15936 12.889 8.18184 12.3675 7.77832 12.39C7.40081 12.4125 7.46881 12.8445 7.55182 13.126C7.63882 13.404 7.75182 13.5955 7.91033 13.8396C8.01983 14.0011 8.09533 14.2411 7.80083 14.4216C7.15181 14.8231 6.02327 14.2866 5.97027 14.2601C4.65673 13.4865 3.5587 12.4655 2.78467 11.069C2.03715 9.72493 1.60314 8.28289 1.53164 6.74384C1.51264 6.37233 1.62214 6.24082 1.99215 6.17332C2.47916 6.08332 2.98118 6.06432 3.46769 6.13582C5.52476 6.43633 7.27581 7.35586 8.74385 8.8129C9.58188 9.64243 10.2159 10.634 10.8689 11.6025C11.5634 12.631 12.3105 13.611 13.262 14.4146C13.598 14.6961 13.866 14.9101 14.1225 15.0681C13.349 15.1546 12.058 15.1731 11.1749 14.4746L11.1749 14.4736ZM12.141 8.25988C12.141 8.09488 12.273 7.96338 12.439 7.96338C12.4765 7.96338 12.5105 7.97088 12.541 7.98188C12.5825 7.99688 12.6205 8.01938 12.6505 8.05338C12.7035 8.10588 12.7335 8.18088 12.7335 8.25988C12.7335 8.42489 12.6015 8.55639 12.4355 8.55639C12.2695 8.55639 12.141 8.42489 12.141 8.25988ZM15.1415 9.79893C14.949 9.87793 14.7565 9.94544 14.5715 9.95294C14.2845 9.96794 13.9715 9.85143 13.8015 9.70893C13.5375 9.48742 13.3485 9.36342 13.2695 8.97691C13.2355 8.8119 13.2545 8.55639 13.2845 8.40989C13.3525 8.09438 13.277 7.89187 13.0545 7.70787C12.8735 7.55786 12.643 7.51636 12.39 7.51636C12.2955 7.51636 12.209 7.47486 12.1445 7.44136C12.039 7.38886 11.9519 7.25735 12.035 7.09585C12.0615 7.04335 12.19 6.91584 12.22 6.89334C12.5635 6.69784 12.9595 6.76184 13.326 6.90834C13.6655 7.04735 13.9225 7.30236 14.292 7.66287C14.6695 8.09838 14.7375 8.21838 14.9525 8.54539C15.1225 8.8009 15.277 9.06341 15.3831 9.36392C15.4471 9.55142 15.3641 9.70493 15.1415 9.79893Z" fill="currentColor"/></svg>
+            <span class="brand-copy">
+              <span class="brand-name">deepseek</span>
+              <span class="brand-harness">HARNESS</span>
+            </span>
           </button>
         </div>
-      </div>
-    </aside>
+        <div class="new-session-row">
+          <button type="button" class="new-session" data-action="new-session">
+            <span class="new-session-inner">
+              <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-new-chat"/></svg>
+              <span>新会话</span>
+            </span>
+            <kbd class="kbd">Ctrl + N</kbd>
+          </button>
+        </div>
+        <nav class="panel-list" aria-label="面板">
+          <button type="button" class="panel-row" data-action="app-note">
+            <svg class="icon" viewBox="0 0 17 17" aria-hidden="true"><use href="#i-automation"/></svg>
+            <span class="panel-label">自动化任务</span>
+          </button>
+        </nav>
+        <div class="side-scroll od-scroll" id="side-scroll">
+          <div class="workspace-head">
+            <span class="workspace-label">工作区</span>
+            <div class="workspace-actions">
+              <button type="button" class="ws-action" data-action="app-note" aria-label="搜索工作区">
+                <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-search"/></svg>
+              </button>
+              <button type="button" class="ws-action" data-action="app-note" aria-label="筛选工作区">
+                <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-sliders"/></svg>
+              </button>
+              <button type="button" class="ws-action" data-action="app-note" aria-label="新建工作区">
+                <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-project-add"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="session-mount"></div>
+        </div>
+        <div class="user-bar">
+          <button type="button" class="user-chip" data-action="open-settings" aria-label="用户 Nato，打开设置">
+            <span class="user-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2" fill="currentColor"/><path d="M5.5 18.5c1.4-2.4 3.6-3.5 6.5-3.5s5.1 1.1 6.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </span>
+            <span class="user-name">Nato</span>
+          </button>
+          <div class="user-side">
+            <button type="button" class="icon-btn" data-action="open-messages" aria-label="消息中心">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg>
+            </button>
+          </div>
+        </div>
+      </aside>
     <button type="button" class="scrim" id="scrim" data-action="close-drawer" hidden aria-label="关闭侧边栏"></button>
     <div class="main" id="main">
       <header class="topbar">
-        <div class="topbar-title od-fill">
-          <p class="kicker" id="workspace-kicker">dsh</p>
-          <h1 id="view-title" tabindex="-1">新会话</h1>
+        <div class="topbar-row">
+          <div class="topbar-title">
+            <h1 id="view-title" tabindex="-1">新会话</h1>
+            <span class="preset-label"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-preset"/></svg><span id="preset-label-text">PTC 模式</span></span>
+            <button type="button" class="task-chip" id="task-chip" data-action="app-note" hidden>
+              <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-clock"/></svg>
+              <span>1个后台任务</span>
+            </button>
+          </div>
+          <div class="top-actions" id="session-tools">
+            <button type="button" class="icon-btn" data-action="app-note" aria-label="更多">
+              <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-ellipsis"/></svg>
+            </button>
+            <button type="button" class="icon-btn" data-action="app-note" aria-label="打开右侧面板">
+              <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-panel-right"/></svg>
+            </button>
+          </div>
+          <div class="home-tools">
+            <button type="button" class="icon-btn" data-action="app-note" aria-label="打开右侧面板">
+              <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-panel-right"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="top-actions" id="session-tools">
-          <button type="button" class="text-btn" data-action="open-inspector" data-inspector="trajectory">
-            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="6" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 6h8a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
-            <span class="label">轨迹</span>
-          </button>
-          <button type="button" class="text-btn" data-action="open-inspector" data-inspector="log">
-            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M10 8h4M10 12h4M10 16h3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
-            <span class="label">Session log</span>
+        <div class="session-tabs" id="session-tabs">
+          <button type="button" class="tab is-active" data-action="tab-conversation">对话</button>
+          <button type="button" class="tab" data-action="open-inspector" data-inspector="trajectory">轨迹</button>
+          <button type="button" class="tab tab-more" data-action="open-inspector" data-inspector="log" aria-label="更多视图">
+            <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-ellipsis"/></svg>
           </button>
         </div>
       </header>
       <div class="stage">
         <div data-include="pages/conversation.html"></div>
-        <div data-include="pages/plugins.html"></div>
         <div data-include="pages/messages.html"></div>
       </div>
       <div data-include="pages/inspector.html"></div>
@@ -1371,7 +2069,16 @@
       down: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13V4h3v9h-3zm0 0-4.2 6.2A2 2 0 0 1 10 19.8V16H4.8a2 2 0 0 1-2-2.3l1.2-7A2 2 0 0 1 6 5h4.2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>',
       chevron: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       send: '<svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      stop: '<svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>'
+      stop: '<svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>',
+      // 运行过程里的工具图标：与 dsh-client-ui-tool 各 toolview 的 leading 图标一一对应。
+      browse: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 3.5V8h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+      think: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.6 9.6l4.8 4.8M14.4 9.6l-4.8 4.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+      search: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 16l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+      pen: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 20h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16.8 3.7a2.1 2.1 0 0 1 3 3L7.2 19.3 3 20.4l1.1-4.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+      terminal: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 10.5l2 2-2 2M13 14.5h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      chevronUp: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      chevronDown: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      chevronRight: '<svg class="od-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     };
     const CHECK_ICON = '<svg class="picker-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -1379,16 +2086,20 @@
       rail: false,
       drawer: false,
       view: 'conversation',
-      pluginTab: 'discover',
+      pluginTab: 'installed',
+      pluginMarket: 'dsh-market',
       query: '',
       pluginDetail: null,
       pendingPlugin: null,
+      pendingUninstall: null,
       inspector: null,
       contextOpen: false,
-      activeWorkspace: 'dsh',
+      activeWorkspace: 'uwork',
+      collapsed: {},
       activeSession: null,
-      access: 'full',
-      model: 'DeepSeek-V4-Flash High',
+      access: 'workspace',
+      preset: 'PTC 模式',
+      model: 'DeepSeek-V4.1-Flash High',
       sending: false,
       settingsTab: 'persona',
       callName: '',
@@ -1409,32 +2120,54 @@
       timers: []
     };
 
-    const plugins = [
-      {
-        id: 'market-bundle',
-        title: '自定义插件索引',
-        packageName: '@deepseek-ai/dsh-experimental-plugin-market-bundle',
-        description: '在插件页添加“发现”标签页，从你添加的插件索引中浏览和安装插件。',
-        author: 'DeepSeek',
-        version: '0.2.2-rc.5',
-        source: '随 DSH 提供',
-        installed: true,
-        bundled: true,
-        enabled: true,
-        tags: ['插件', '索引']
-      },
+    const pluginMarkets = [
       {
         id: 'community',
-        title: 'dsh-community-market',
-        packageName: 'dsh-community-market',
-        description: 'DSH Desktop 内置的开放插件市场，支持添加和选择自定义插件数据源。',
+        name: 'dsh-community-market',
+        badge: 'Beta',
+        descriptionHtml: 'DSH Desktop 内置的开放插件市场，支持添加和选择自定义插件数据源。'
+      },
+      {
+        id: 'dsh-market',
+        name: 'dsh-market',
+        descriptionHtml: '社区热门的插件市场，数据来自 <code>awesome-dsh-plugin</code>'
+      }
+    ];
+
+    const plugins = [
+      {
+        id: 'remote-control',
+        title: '远程控制',
+        packageName: 'agents-anywhere',
+        description: '通过 Agents Anywhere 从手机或其他设备连接。启用后，在侧边栏的“远程控制”中完成配对。',
         author: 'DSH Desktop',
         version: '2.0.18',
         source: '桌面端',
+        group: 'installed',
         installed: true,
-        bundled: true,
-        enabled: true,
-        tags: ['市场']
+        enabled: false,
+        tags: ['远程'],
+        icon: 'monitor-smartphone',
+        tone: 'blue',
+        actionLabel: '打开面板',
+        rowAction: 'plugin-open-panel'
+      },
+      {
+        id: 'computer-use',
+        title: 'Computer Use (Next)',
+        packageName: '@deepseek-ai/dsh-plugin-computer-use',
+        description: '让 AI 查看屏幕、操作鼠标和键盘，支持 macOS、Windows 和 Linux。截图理解需要支持图片输入的模型。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '桌面端',
+        group: 'installed',
+        installed: true,
+        enabled: false,
+        tags: [],
+        icon: 'scan-eye',
+        tone: 'teal',
+        actionLabel: '权限设置',
+        rowAction: 'plugin-permissions'
       },
       {
         id: 'oar',
@@ -1444,23 +2177,184 @@
         author: 'DeepSeek',
         version: '0.2.2-rc.5',
         source: '实验性',
-        installed: false,
-        bundled: false,
+        group: 'installed',
+        installed: true,
         enabled: false,
-        tags: ['实验性']
+        tags: ['实验性'],
+        icon: 'blocks',
+        tone: 'blue'
       },
       {
-        id: 'aa',
-        title: 'Agents-Anywhere',
-        packageName: 'agents-anywhere',
-        description: '通过 Agents-Anywhere，在手机或浏览器中访问这台电脑上的 DSH。',
-        author: 'DSH Desktop',
-        version: '2.0.18',
-        source: '桌面端',
-        installed: false,
-        bundled: false,
+        id: 'voice',
+        title: '语音输入',
+        packageName: '@deepseek-ai/dsh-plugin-voice-input',
+        description: '在本机使用 SenseVoice 转写录音，首次使用需安装依赖。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '实验性',
+        group: 'experimental',
+        installed: true,
         enabled: false,
-        tags: ['远程', 'Beta']
+        tags: ['实验性'],
+        icon: 'audio-lines',
+        tone: 'teal'
+      },
+      {
+        id: 'market-bundle',
+        title: '自定义插件索引',
+        packageName: '@deepseek-ai/dsh-experimental-plugin-market-bundle',
+        description: '在插件页添加“发现”标签页，从你添加的插件索引中浏览和安装插件。',
+        author: 'DeepSeek',
+        version: '0.2.2-rc.5',
+        source: '实验性',
+        group: 'experimental',
+        installed: true,
+        enabled: false,
+        tags: ['实验性'],
+        icon: 'square-plus',
+        tone: 'blue'
+      },
+      {
+        id: 'auto-review',
+        title: '自动授权审查',
+        packageName: '@deepseek-ai/dsh-plugin-auto-review',
+        description: '提供“自动审查”访问模式：每次工具调用前，由模型对照你的要求检查，获准的调用立即运行，被拒绝的调用等你审批。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '实验性',
+        group: 'experimental',
+        installed: true,
+        enabled: false,
+        tags: ['实验性'],
+        icon: 'shield-check',
+        tone: 'purple'
+      },
+      {
+        id: 'worktree',
+        title: '变更请求与工作树',
+        packageName: '@deepseek-ai/dsh-plugin-worktree',
+        description: '在会话侧栏中跟踪关联的 GitHub PR：查看检查状态、评审意见与代码差异，并把修改建议交给智能体继续处理。也可查看本地改动，用独立工作树隔离分支。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '实验性',
+        group: 'experimental',
+        installed: true,
+        enabled: false,
+        tags: ['实验性'],
+        icon: 'git-pull-request',
+        tone: 'teal'
+      },
+      {
+        id: 'liveshare',
+        title: 'LiveShare 会话分享',
+        packageName: '@deepseek-ai/dsh-plugin-liveshare',
+        description: '把当前会话分享给同事，对方可在浏览器中驱动该会话，在分享允许写入时修改授权工作区内的文件，或从已完成历史分支出自己的会话。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '实验性',
+        group: 'experimental',
+        installed: true,
+        enabled: false,
+        tags: ['实验性'],
+        icon: 'share-2',
+        tone: 'blue'
+      },
+      {
+        id: 'mcp-tools',
+        title: 'MCP 工具包',
+        packageName: '@deepseek-ai/dsh-plugin-mcp-tools',
+        description: '把外部 MCP 服务接入当前会话，按需启用工具与资源。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '插件市场',
+        group: 'market',
+        installed: false,
+        enabled: false,
+        tags: ['工具'],
+        icon: 'plug',
+        tone: 'purple'
+      },
+      {
+        id: 'browser-control',
+        title: 'Browser Control',
+        packageName: '@deepseek-ai/dsh-plugin-browser-control',
+        description: '在受控浏览器中打开页面、点击和读取内容，并把结果带回会话。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '插件市场',
+        group: 'market',
+        installed: false,
+        enabled: false,
+        tags: ['浏览器'],
+        icon: 'globe',
+        tone: 'blue'
+      },
+      {
+        id: 'screenshot',
+        title: '截图与标注',
+        packageName: '@deepseek-ai/dsh-plugin-screenshot',
+        description: '截取屏幕或窗口，添加标注后交给智能体。',
+        author: 'DeepSeek',
+        version: '0.1.0',
+        source: '插件市场',
+        group: 'market',
+        installed: false,
+        enabled: false,
+        tags: ['多模态'],
+        icon: 'image',
+        tone: 'teal'
+      }
+    ];
+
+    const builtinPluginConfigs = [
+      { id: 'subagents', title: '子智能体', description: '设置子智能体的递归层级、数量和模型。', icon: 'layers', tone: 'blue' },
+      { id: 'web-search', title: '网页搜索与获取', description: '选择网页搜索与网页获取使用的提供方。', icon: 'search', tone: 'teal' },
+      { id: 'agent-loop', title: 'Agent 循环', description: '控制 Agent 派发工具调用的方式。', icon: 'orbit', tone: 'purple' },
+      { id: 'terminal', title: '终端', description: '限制每条命令最多能跑多久、最多输出多少内容。', icon: 'terminal', tone: 'blue' }
+    ];
+
+    const installedPlugins = [
+      {
+        id: 'zentao',
+        title: '禅道管理',
+        packageName: '@zentao/dsh-zentao-manager',
+        version: '1.0.0',
+        description: '统一管理本机与项目中的禅道需求、任务与缺陷。',
+        author: '禅道社区',
+        source: '社区插件',
+        installed: true,
+        enabled: true,
+        tags: [],
+        icon: 'clipboard-list',
+        tone: 'purple',
+        detail: {
+          name: 'DSH 禅道管理',
+          lead: '统一管理本机与项目中的禅道数据，从会话中创建、查看和更新需求、任务与缺陷。',
+          languages: '简体中文 · English · 日本語',
+          links: '更新日志 · 开源协议',
+          badges: [
+            { label: '许可证', value: 'MIT', tone: 'blue' },
+            { label: 'npm package', value: 'v1.0.0', tone: 'green' },
+            { label: 'npm 下载量', value: '12.4k', tone: 'green' },
+            { label: 'DSH Web Plugin', value: '', tone: 'muted' },
+            { label: 'DSH', value: '支持至 0.2.2-rc.5', tone: 'blue' }
+          ],
+          disclaimer: 'DSH 禅道管理是社区维护的 DeepSeek Harness (DSH) 插件，并非 DeepSeek AI 官方产品。',
+          featuresTitle: '功能概览',
+          featuresIntro: '把散落在禅道中的需求、任务与缺陷集中到 DSH，无需在多个页面之间来回查找。',
+          features: [
+            '多视图集中管理：提供「我的任务」、「项目需求」、「缺陷」与「迭代」四大工作区视图，支持搜索、状态筛选与项目折叠。',
+            '广泛的生态兼容：覆盖禅道开源版、企业版与云端 API，并适配常见的项目模板与工作流。'
+          ],
+          entryTitle: '入口展示位置',
+          entryHelp: '选择禅道管理入口的展示位置（至少保留一处，防止无法打开面板）。',
+          entryOptions: ['两边显示', '仅侧边栏', '仅设置'],
+          entrySelected: '仅设置',
+          componentDescription: '统一管理禅道项目中的需求、任务与缺陷。',
+          componentId: 'zentao-manager',
+          componentPackage: '@zentao/dsh-zentao-manager',
+          checked: '上次检查于 15:22'
+        }
       }
     ];
 
@@ -1469,14 +2363,16 @@
 
     state.workspaces = [
       {
-        id: 'dsh',
-        name: 'dsh',
+        id: 'uwork',
+        name: 'UWork-Design',
         sessions: [
           {
             id: 'hi',
-            title: '你好',
+            title: '客户端原型 Demo 演示',
+            time: '4分钟',
+            running: true,
             messages: [
-              { id: 'u1', role: 'user', text: '你好' },
+              { id: 'u1', role: 'user', text: '帮我演示一下这个客户端原型：侧边栏、对话过程和设置里的插件配置都走一遍。' },
               {
                 id: 'c1',
                 role: 'context',
@@ -1487,35 +2383,63 @@
                 ],
                 note: '示例记录。这个原型没有读取这些文件。'
               },
-              { id: 't1', role: 'think', open: false, text: '用户在打招呼。这一轮不需要工具，直接回应即可。' },
-              { id: 'a1', role: 'assistant', text: '你好。我是这个桌面原型里的本地回复，没有连接 DeepSeek。当前工作区是 dsh，模型是 DeepSeek-V4-Flash High。可以继续输入，或打开轨迹和 Session log 看这一轮的记录。' }
+              { id: 't1', role: 'think', open: false, text: '先看侧边栏、对话过程和设置里的插件配置三块，再按一条完整的对话走一遍演示。' },
+              {
+                id: 'a1',
+                role: 'assistant',
+                md: true,
+                text: '好的，这条演示可以从三个地方看：\n\n' +
+                  '- 侧边栏：工作区与会话列表、会话的完成时间，以及新建会话的快捷键。\n' +
+                  '- 对话：用户消息、上下文注入、思考、运行过程和最终回复，每一段都能单独展开或收起。\n' +
+                  '- 插件配置：在设置里切换「已安装 / 插件市场」，打开插件详情、安装确认和开关。\n\n' +
+                  '这是本地示例回复，没有连接 DeepSeek。'
+              }
             ]
           },
           {
             id: 'readme',
-            title: '看 README',
+            title: '插件配置顶部不显示',
+            time: '14分钟',
             messages: [
-              { id: 'u2', role: 'user', text: '这个仓库的桌面端入口在哪？' },
-              { id: 'a2', role: 'assistant', text: '桌面壳在 dsh-plugin-desktop，Next 变体在 dsh-desktop-next。这是页面里的示例回复，没有打开仓库。' }
+              { id: 'u2', role: 'user', text: '插件配置页顶部的说明怎么不显示了？' },
+              { id: 'a2', role: 'assistant', text: '检查了顶部的条件渲染：只有选中的插件带描述时才会出现说明区，空描述的插件会整段收起。这是页面里的示例回复，没有真的检查代码。' }
+            ]
+          },
+          {
+            id: 'srcchat',
+            title: '基于源码的聊天消息 Demo',
+            time: '1小时',
+            messages: [
+              { id: 'u3', role: 'user', text: '基于源码的聊天消息 Demo 是怎么组织的？' },
+              { id: 'a3', role: 'assistant', text: '按用户消息、上下文注入、思考、运行过程和最终回复分段；每一段都可以单独展开。这个原型只保留了静态数据。' }
+            ]
+          },
+          {
+            id: 'menu',
+            title: '客户端插件配置菜单改造',
+            time: '2小时',
+            messages: [
+              { id: 'u4', role: 'user', text: '把客户端插件配置的菜单改成和桌面端一致。' },
+              { id: 'a4', role: 'assistant', text: '菜单已经按桌面端的层级重排：插件列表、配置详情和安装入口各占一层，返回时会回到原来的位置。' }
             ]
           }
         ]
       },
       {
-        id: 'aa',
-        name: 'Agents-Anywhere',
+        id: 'default',
+        name: '默认工作区',
         sessions: [
           {
             id: 'phone',
-            title: '手机连接',
+            title: 'Greeting',
+            time: '3小时',
             messages: [
-              { id: 'u3', role: 'user', text: '怎么在手机上打开这台电脑上的 DSH？' },
-              { id: 'a3', role: 'assistant', text: '真实的 DSH Desktop 里，开启手机连接后，侧栏会出现入口。这个原型只保留说明，不会生成访问链接。' }
+              { id: 'u5', role: 'user', text: '你好' },
+              { id: 'a5', role: 'assistant', text: '你好。我是这个桌面原型里的本地回复，没有连接 DeepSeek。可以继续输入，或打开轨迹和 Session log 看这一轮的记录。' }
             ]
           }
         ]
-      },
-      { id: 'next', name: 'dsh-desktop-next', sessions: [] }
+      }
     ];
 
     const $ = (id) => document.getElementById(id);
@@ -1527,7 +2451,6 @@
     const hero = $('hero');
     const dock = $('dock');
     const viewConversation = $('view-conversation');
-    const viewPlugins = $('view-plugins');
     const viewMessages = $('view-messages');
     const narrowQuery = window.matchMedia('(max-width: 1023px)');
 
@@ -1597,15 +2520,37 @@
       const prev = document.activeElement;
       const restoreSession = prev && prev.dataset ? prev.dataset.session : '';
       const restoreWs = prev && prev.dataset && prev.dataset.action === 'open-workspace' ? prev.dataset.workspace : '';
+      const folderOpen = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-folder-open"/></svg>';
+      const folderClose = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-folder-close"/></svg>';
+      const arrow = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4.5c0-.4.44-.62.77-.38l4.67 3.5a.5.5 0 0 1 0 .76l-4.67 3.5c-.33.24-.77.02-.77-.38v-7z" fill="currentColor"/></svg>';
+      const spinner = '<svg class="session-spinner" viewBox="0 0 24 24" aria-hidden="true"><g class="spin"><circle class="track" cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><circle class="arc" cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g></svg>';
+      const dots = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-ellipsis"/></svg>';
+      const archive = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-archive"/></svg>';
+      const pin = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-pin"/></svg>';
       mount.innerHTML = state.workspaces.map((ws) => {
-        const rows = ws.sessions.length
-          ? ws.sessions.map((session) => {
-            const current = session.id === state.activeSession ? 'true' : 'false';
-            return '<button type="button" class="side-row" data-action="open-session" data-workspace="' + esc(ws.id) + '" data-session="' + esc(session.id) + '" aria-current="' + current + '"><span class="od-truncate od-fill">' + esc(session.title) + '</span><span class="side-time">刚刚</span></button>';
-          }).join('')
-          : '<p class="ws-label">还没有会话</p>';
-        const currentWs = ws.id === state.activeWorkspace ? ' is-workspace' : '';
-        return '<section class="ws" aria-label="' + esc(ws.name) + '"><button type="button" class="side-row' + currentWs + '" data-action="open-workspace" data-workspace="' + esc(ws.id) + '"><span class="od-truncate">' + esc(ws.name) + '</span></button>' + rows + '</section>';
+        const currentWs = ws.id === state.activeWorkspace;
+        const isCollapsed = !!state.collapsed[ws.id];
+        const blank = !isCollapsed && currentWs && state.activeSession === null && state.view === 'conversation'
+          ? '<button type="button" class="side-row session is-blank" data-action="new-session" aria-current="true"><span class="session-slot"></span><span class="side-title">新会话</span></button>'
+          : '';
+        const rows = isCollapsed ? '' : ws.sessions.map((session) => {
+          const current = session.id === state.activeSession ? 'true' : 'false';
+          const running = session.running || (state.sending && session.id === state.activeSession);
+          return '<button type="button" class="side-row session" data-action="open-session" data-workspace="' + esc(ws.id) + '" data-session="' + esc(session.id) + '" aria-current="' + current + '">'
+            + '<span class="session-slot">' + (running ? spinner : '') + '</span>'
+            + '<span class="side-title">' + esc(session.title) + '</span>'
+            + '<span class="side-time">' + esc(session.time || '刚刚') + '</span>'
+            + '<span class="row-actions" aria-hidden="true"><span class="row-action">' + dots + '</span><span class="row-action">' + archive + '</span><span class="row-action">' + pin + '</span></span>'
+            + '</button>';
+        }).join('');
+        return '<section class="ws-group" aria-label="' + esc(ws.name) + '">'
+          + '<button type="button" class="side-row ws-row' + (currentWs ? ' is-current' : '') + '" data-action="open-workspace" data-workspace="' + esc(ws.id) + '" aria-expanded="' + (isCollapsed ? 'false' : 'true') + '">'
+          + '<span class="row-glyph folder">' + (currentWs ? folderOpen : folderClose) + '</span>'
+          + '<span class="row-chevron' + (isCollapsed ? '' : ' is-open') + '">' + arrow + '</span>'
+          + '<span class="side-title">' + esc(ws.name) + '</span>'
+          + '</button>'
+          + '<div class="ws-sessions">' + blank + rows + '</div>'
+          + '</section>';
       }).join('');
       if (restoreSession) {
         const btn = mount.querySelector('[data-session="' + CSS.escape(restoreSession) + '"]');
@@ -1616,10 +2561,428 @@
       }
     }
 
+    /* ---- 运行过程 ----------------------------------------------------------
+       结构对照 dsh-client-ui-chat 与 dsh-client-ui-tool：
+       - TurnProcessNodeView：本轮结束后出现的「已完成，用时 …」，负责整轮过程的显示与收起。
+       - ChatGroupSeat：一次连续工作的过程分组，收起时显示前三个类别的摘要
+         （processTitle，对应 step-process.ts），展开后是逐次工具调用。
+       - ToolRow：一行一次调用，标题 + 摘要 + 可选的大小与 diff 统计，展开看结果卡片。
+       下面的行数据只是演示，字段沿用 tool / activity / state / counts 的叫法。 */
+
+    const RUN_ACTIVITY = {
+      think: 'thinking',
+      read: 'read', read_image: 'readImage', grep: 'search', glob: 'search', search: 'search',
+      write: 'write', edit: 'edit', apply_patch: 'edit',
+      bash: 'commands', pwsh: 'commands', terminal: 'commands', commands: 'commands', run_code: 'code',
+      web_search: 'webSearch', web_fetch: 'webFetch',
+      subagent: 'subagents', todo_write: 'plan', ask_user_question: 'questions'
+    };
+
+    // message.stepProcess.done.* / message.stepProcess.*（dsh-client-ui-chat 的中文文案）。
+    const PROCESS_DONE = {
+      read: '已读取文件', readImage: '已读取图片', write: '已写入文件', search: '已搜索代码',
+      edit: '修改了文件', commands: '执行了命令', code: '运行了代码',
+      webSearch: '已搜索网页', webFetch: '已访问网页', subagents: '已协调子智能体',
+      plan: '更新了计划', questions: '向用户提出了问题', tools: '已调用工具', context: '已注入上下文'
+    };
+    const PROCESS_LIVE = {
+      thinking: '正在分析请求', read: '正在读取文件', readImage: '正在读取图片', write: '正在写入文件',
+      search: '正在搜索代码', edit: '正在编辑文件', commands: '正在运行命令', code: '正在运行代码',
+      webSearch: '正在搜索网页', webFetch: '正在访问网页', subagents: '正在协调子智能体',
+      plan: '正在更新计划', questions: '等待你的操作', tools: '正在调用工具'
+    };
+    const TOOL_TITLES = {
+      read: '读取', read_image: '读取图片', glob: '查找文件', grep: '搜索文件内容',
+      edit: '编辑', apply_patch: '编辑', write: '写入',
+      bash: '运行命令', pwsh: '运行命令', commands: '运行命令', run_code: '代码'
+    };
+    const PROCESS_ICONS = {
+      read: ICONS.browse, readImage: ICONS.browse, search: ICONS.search, edit: ICONS.pen,
+      write: ICONS.pen, commands: ICONS.terminal, code: ICONS.terminal,
+      plan: ICONS.think, tools: ICONS.think, thinking: ICONS.think, questions: ICONS.think
+    };
+
+    function activityOf(row) {
+      return row.activity || RUN_ACTIVITY[row.tool] || 'tools';
+    }
+
+    // processActivity()：按调用次数排序，同样次数按首次出现顺序。
+    function processCounts(rows) {
+      const counts = new Map();
+      rows.forEach((row) => {
+        if (row.tool === 'think') return; // 思考不是工具调用，不进入摘要。
+        const kind = activityOf(row);
+        counts.set(kind, (counts.get(kind) || 0) + 1);
+      });
+      return [...counts].map(([kind, count]) => ({ kind, count })).sort((left, right) => right.count - left.count);
+    }
+
+    // processTitle()：只取前三个类别，第四个及以后折叠成「等」。
+    function processTitle(rows) {
+      const counts = processCounts(rows);
+      const labels = counts.slice(0, 3).map((item) => PROCESS_DONE[item.kind] || PROCESS_DONE.tools);
+      const first = labels[0];
+      if (!first) return '已完成分析';
+      if (labels.length === 1) return first;
+      const prefix = '已';
+      if (labels.length === 2) {
+        const second = labels[1];
+        const shared = first.startsWith(prefix) && second.startsWith(prefix);
+        return first + '并' + (shared ? second.slice(prefix.length) : second);
+      }
+      return labels.slice(0, 3).join('，') + (counts.length > 3 ? '等' : '');
+    }
+
+    function runElapsed(run) {
+      return Math.max(0, (run.endedAt || Date.now()) - run.startedAt);
+    }
+
+    // formatRunDuration()：满 60 秒才出现「分」，满 60 分钟才出现「小时」。
+    function durationHtml(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor(total / 60) % 60;
+      const seconds = total % 60;
+      const parts = [];
+      if (hours > 0) parts.push('<span class="turn-process-num">' + hours + '</span> 小时');
+      if (total >= 60) parts.push('<span class="turn-process-num">' + minutes + '</span> 分');
+      parts.push('<span class="turn-process-num">' + seconds + '</span> 秒');
+      return parts.join(' ');
+    }
+
+    function turnProcessLabel(run) {
+      // 停止的轮次不显示耗时，和 TurnProcessNodeView 一致。
+      if (run.status === 'stopped') return '已停止';
+      return '已完成，用时 ' + durationHtml(runElapsed(run));
+    }
+
+    function inlineMd(text) {
+      return esc(text)
+        .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    }
+
+    // 最终回复只用到原型里需要的 Markdown 子集：段落、有序/无序列表、行内代码、加粗。
+    function markdownHtml(source) {
+      const lines = String(source).replace(/\r\n?/g, '\n').split('\n');
+      const blocks = [];
+      let paragraph = [];
+      let list = null;
+      const flushParagraph = () => {
+        if (!paragraph.length) return;
+        blocks.push('<p>' + inlineMd(paragraph.join(' ')) + '</p>');
+        paragraph = [];
+      };
+      const flushList = () => {
+        if (!list) return;
+        blocks.push(renderMdList(list.items, list.ordered));
+        list = null;
+      };
+      lines.forEach((line) => {
+        if (!line.trim()) {
+          flushParagraph();
+          flushList();
+          return;
+        }
+        const item = /^(\s*)([-*]|\d+\.)\s+(.*)$/.exec(line);
+        if (item) {
+          flushParagraph();
+          const ordered = /\d/.test(item[2]);
+          if (list && list.ordered !== ordered) flushList();
+          if (!list) list = { ordered: ordered, items: [] };
+          list.items.push({ level: Math.floor(item[1].replace(/\t/g, '  ').length / 2), text: item[3] });
+          return;
+        }
+        flushList();
+        paragraph.push(line.trim());
+      });
+      flushParagraph();
+      flushList();
+      return blocks.join('');
+    }
+
+    function renderMdList(items, ordered) {
+      const root = { level: -1, children: [] };
+      const stack = [root];
+      items.forEach((item) => {
+        while (stack.length > 1 && stack[stack.length - 1].level >= item.level) stack.pop();
+        const node = { level: item.level, text: item.text, children: [] };
+        stack[stack.length - 1].children.push(node);
+        stack.push(node);
+      });
+      const tag = ordered ? 'ol' : 'ul';
+      const render = (nodes) => '<' + tag + '>' + nodes.map((node) => '<li>' + inlineMd(node.text) + (node.children.length ? render(node.children) : '') + '</li>').join('') + '</' + tag + '>';
+      return render(root.children);
+    }
+
+    function toolDetailHtml(row) {
+      const detail = row.detail;
+      if (!detail) return '';
+      if (detail.type === 'text') {
+        return '<p class="tool-think">' + esc(detail.text) + '</p>';
+      }
+      if (detail.type === 'paths') {
+        const head = detail.title
+          ? '<div class="tool-card-head"><span class="od-fill">' + esc(detail.title) + '</span></div>'
+          : '';
+        return '<div class="tool-card">' + head + '<div class="tool-card-body"><div class="tool-paths">' +
+          detail.items.map((item) => '<span>' + esc(item) + '</span>').join('') + '</div></div></div>';
+      }
+      if (detail.type === 'diff') {
+        const head = '<div class="tool-card-head"><span class="od-fill">' + esc(detail.title) + '</span><span>' +
+          detail.added + ' 增 / ' + detail.removed + ' 删</span></div>';
+        const lines = detail.lines.map((line) => {
+          const kind = line[0];
+          const sign = kind === 'add' ? '+' : kind === 'del' ? '-' : ' ';
+          return '<div class="diff-line" data-kind="' + kind + '"><span class="sign">' + sign + '</span><span>' + esc(line[1]) + '</span></div>';
+        }).join('');
+        return '<div class="tool-card">' + head + '<div class="tool-card-body">' + lines + '</div></div>';
+      }
+      if (detail.type === 'read') {
+        const from = detail.from || 1;
+        const head = '<div class="tool-card-head"><span class="od-fill">' + esc(detail.title) + '</span><span>' +
+          from + '–' + (from + detail.lines.length - 1) + '</span></div>';
+        const lines = detail.lines.map((text, index) => '<div class="read-line"><span class="ln">' + (from + index) + '</span><span class="code">' + esc(text) + '</span></div>').join('');
+        return '<div class="tool-card">' + head + '<div class="tool-card-body">' + lines + '</div></div>';
+      }
+      if (detail.type === 'output') {
+        const head = '<div class="tool-card-head"><span class="od-fill">' + esc(detail.title) + '</span><span>退出码 0</span></div>';
+        return '<div class="tool-card">' + head + '<div class="tool-card-body tool-output">' + esc(detail.text) + '</div></div>';
+      }
+      return '';
+    }
+
+    function toolRowHtml(run, row, index) {
+      const activity = activityOf(row);
+      const live = row.state === 'running';
+      const title = row.tool === 'think' ? '思考' : (TOOL_TITLES[row.tool] || '工具调用');
+      const open = row.open === true;
+      const summary = row.summary
+        ? '<span class="tool-sep" aria-hidden="true"></span><span class="tool-summary' + (row.path ? ' is-path' : '') + (live ? ' is-shimmer' : '') + '">' + esc(row.summary) + '</span>'
+        : '';
+      const suffix = row.suffix ? '<span class="tool-suffix">' + esc(row.suffix) + '</span>' : '';
+      const diff = typeof row.added === 'number'
+        ? '<span class="tool-diff"><span class="diff-add">+' + row.added + '</span> <span class="diff-del">-' + row.removed + '</span></span>'
+        : '';
+      const body = open ? '<div class="tool-row-body">' + toolDetailHtml(row) + '</div>' : '';
+      return '<div class="tool-row tool-row--' + esc(row.tool) + '" data-tool="' + esc(row.tool) + '" data-state="' +
+        (live ? 'running' : 'ok') + '"' + (open ? ' data-open' : '') + '>' +
+          '<button type="button" class="tool-row-head" data-action="toggle-run-row" data-id="' + esc(run.id) +
+            '" data-index="' + index + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+            '<span class="tool-leading" aria-hidden="true">' + (PROCESS_ICONS[activity] || ICONS.think) + '</span>' +
+            '<span class="tool-title' + (live ? ' is-shimmer' : '') + '">' + esc(title) + '</span>' +
+            summary + suffix + diff +
+            '<span class="tool-chevron" aria-hidden="true">' + ICONS.chevronRight + '</span>' +
+          '</button>' + body +
+        '</div>';
+    }
+
+    function runHtml(run) {
+      const running = run.status === 'running';
+      // 默认折叠：运行中的过程分组和已完成的整轮过程都先收起，点开再看细节。
+      const turnOpen = running || run.open === true;
+      const groupOpen = run.groupOpen === true;
+      const counts = processCounts(run.rows);
+      const liveRow = run.rows.find((row) => row.state === 'running');
+      const activity = liveRow ? activityOf(liveRow) : (counts[0] ? counts[0].kind : 'thinking');
+      const label = running
+        ? (liveRow ? (PROCESS_LIVE[activity] || PROCESS_LIVE.tools) : PROCESS_LIVE.thinking)
+        : processTitle(run.rows);
+      const groupId = esc(run.id) + '-process';
+      const turnId = esc(run.id) + '-turn';
+      const head = running
+        ? ''
+        : '<button type="button" class="turn-process-head" data-action="toggle-turn" data-id="' + esc(run.id) +
+          '" aria-expanded="' + (turnOpen ? 'true' : 'false') + '" aria-controls="' + turnId + '">' +
+            '<span class="turn-process-label">' + turnProcessLabel(run) + '</span>' +
+            '<span class="turn-process-chevron" aria-hidden="true">' + ICONS.chevronDown + '</span>' +
+          '</button>';
+      const group =
+        '<div class="step-process" data-process-activity="' + esc(activity) + '">' +
+          '<button type="button" class="step-process-head" data-action="toggle-process" data-id="' + esc(run.id) +
+            '" aria-expanded="' + (groupOpen ? 'true' : 'false') + '" aria-controls="' + groupId + '">' +
+            '<span class="step-leading" aria-hidden="true">' +
+              '<span class="step-icon">' + (PROCESS_ICONS[activity] || ICONS.think) + '</span>' +
+              '<span class="step-chevron">' + (groupOpen ? ICONS.chevronUp : ICONS.chevronDown) + '</span>' +
+            '</span>' +
+            '<span class="step-label' + (running ? ' is-shimmer' : '') + '">' + esc(label) + '</span>' +
+          '</button>' +
+          '<div class="step-process-body" id="' + groupId + '"' + (groupOpen ? '' : ' hidden') + '>' +
+            '<div class="step-process-content">' + run.rows.map((row, index) => toolRowHtml(run, row, index)).join('') + '</div>' +
+          '</div>' +
+        '</div>';
+      return '<div class="turn-process" data-status="' + esc(run.status) + '">' + head +
+        '<div class="turn-process-body" id="' + turnId + '"' + (turnOpen ? '' : ' hidden') + '>' + group + '</div>' +
+      '</div>';
+    }
+
+    // 演示用的脚本化运行：步骤和文案照搬参考图里那轮「插件配置页」的改造。
+    function demoRunPlan() {
+      const file = (name) => 'app/' + name;
+      return [
+        { delay: 320, tool: 'think', summary: '先看插件配置页现在的结构，再决定怎么改。', detail: { type: 'text', text: '目标是把插件配置页改成纵向配置布局。先确认现有的 tabs、市场卡片和已安装列表用的类名，再替换样式。' } },
+        { delay: 520, tool: 'read', summary: file('index.html'), path: true, detail: { type: 'read', title: file('index.html'), from: 781, lines: [
+          '    .tabs {',
+          '      display: inline-flex;',
+          '      gap: 2px;',
+          '      padding: 3px;',
+          '      border-radius: 999px;',
+          '      background: var(--chip);',
+          '    }',
+          '    .tab {',
+          '      min-height: 32px;',
+          '      padding: 5px 18px;'
+        ] } },
+        { delay: 470, tool: 'glob', summary: file('assets/icons/{plug,image,camera,monitor,keyboard,circle-help,info,external-link,arrow-up-right,sparkles,blocks,square-plus}'), path: true, detail: { type: 'paths', title: '匹配到 12 个文件', items: [
+          'assets/icons/plug.svg', 'assets/icons/image.svg', 'assets/icons/camera.svg', 'assets/icons/monitor.svg',
+          'assets/icons/keyboard.svg', 'assets/icons/circle-help.svg', 'assets/icons/info.svg', 'assets/icons/external-link.svg',
+          'assets/icons/arrow-up-right.svg', 'assets/icons/sparkles.svg', 'assets/icons/blocks.svg', 'assets/icons/square-plus.svg'
+        ] } },
+        { delay: 430, tool: 'think', summary: 'Good.', detail: { type: 'text', text: '图标都在 assets/icons 里，按名字直接引用即可。' } },
+        { delay: 500, tool: 'grep', summary: 'class="tabs"|class="tab"|class="chip"|plugin-grid|plugin-card|plugin-meta', detail: { type: 'paths', title: '3 个文件命中 21 处', items: [
+          'index.html:781  .tabs {',
+          'index.html:789  .tab {',
+          'index.html:802  .chip {',
+          'index.html:1180  .plugin-grid {',
+          'index.html:1192  .plugin-card {',
+          'pages/settings.html:64  <div class="plugin-grid">'
+        ] } },
+        { delay: 430, tool: 'think', summary: '`.tabs` / `.tab` 只有插件页在用，可以整块换掉。', detail: { type: 'text', text: '`.tabs` 和 `.tab` 只在插件配置页出现，其余页面没有引用，可以整体替换成 `.plugin-tabs` / `.plugin-tab`。' } },
+        { delay: 520, tool: 'read', summary: file('pages/settings.html'), path: true, detail: { type: 'read', title: file('pages/settings.html'), from: 96, lines: [
+          '        <div class="tabs" role="tablist">',
+          '          <button class="tab" role="tab" aria-selected="true">已安装</button>',
+          '          <button class="tab" role="tab" aria-selected="false">插件市场</button>',
+          '        </div>',
+          '        <div class="plugin-grid">',
+          '          <article class="plugin-card plugin-open">',
+          '            <span class="plugin-title">远程控制</span>',
+          '            <p class="plugin-desc">在手机上接管这台电脑的会话。</p>'
+        ] } },
+        { delay: 430, tool: 'think', summary: '顶部要新增标题、说明和刷新按钮，再放分段标签。', detail: { type: 'text', text: '按参考图，顶部是标题 + 说明 + 刷新按钮，右侧是带下拉菜单的「添加插件」；下面才是「已安装 / 插件市场」分段标签。' } },
+        { delay: 640, tool: 'edit', summary: file('pages/settings.html'), path: true, suffix: '7KB', added: 78, removed: 13, detail: { type: 'diff', title: file('pages/settings.html'), added: 78, removed: 13, lines: [
+          ['ctx', '@@ -92,7 +92,14 @@ <section class="settings-page">'],
+          ['del', '    <div class="tabs" role="tablist">'],
+          ['add', '    <header class="plugin-head">'],
+          ['add', '      <h3>插件</h3>'],
+          ['add', '      <p>安装、启用和配置 DSH 的插件。</p>'],
+          ['add', '      <button class="secondary" data-action="plugin-refresh">刷新</button>'],
+          ['ctx', '    </header>'],
+          ['add', '    <div class="plugin-tabs" role="tablist">'],
+          ['ctx', '      <button class="plugin-tab" role="tab" aria-selected="true">已安装</button>']
+        ] } },
+        { delay: 430, tool: 'think', summary: '接着把旧的 .tabs 样式换成 .plugin-tabs。', detail: { type: 'text', text: '再替换索引里的样式块：旧的 .tabs / .tab 整段换掉，市场卡片从两列改成纵向，窄屏再退回单列。' } },
+        { delay: 660, tool: 'edit', summary: file('index.html'), path: true, suffix: '11KB', added: 205, removed: 59, detail: { type: 'diff', title: file('index.html'), added: 205, removed: 59, lines: [
+          ['ctx', '@@ -813,7 +813,7 @@'],
+          ['del', '    .tabs {'],
+          ['del', '      display: inline-flex;'],
+          ['add', '    .plugin-tabs {'],
+          ['add', '      display: inline-flex;'],
+          ['add', '      justify-self: start;'],
+          ['add', '      width: fit-content;'],
+          ['ctx', '      gap: 2px;'],
+          ['ctx', '      padding: 3px;'],
+          ['add', '      border-radius: 999px;'],
+          ['add', '      background: var(--chip);']
+        ] } },
+        { delay: 460, tool: 'read', summary: file('pages/settings.html'), path: true, detail: { type: 'read', title: file('pages/settings.html'), from: 128, lines: [
+          '          <button class="plugin-market-card is-selected">',
+          '            <span class="plugin-market-title">dsh-market</span>',
+          '            <p class="plugin-market-desc">官方插件市场。</p>',
+          '          </button>',
+          '          <button class="plugin-market-card">',
+          '            <span class="plugin-market-title">dsh-community-market</span>',
+          '          </button>'
+        ] } },
+        { delay: 430, tool: 'think', summary: '旧块里还有 primary / secondary / danger 的基础样式，需要保留。', detail: { type: 'text', text: '注意：旧样式块里混着 primary / secondary / danger 三个通用按钮类，替换时要把它们留在原处，否则设置页的按钮会掉样式。' } },
+        { delay: 560, tool: 'edit', summary: file('index.html'), path: true, suffix: '2KB', added: 36, removed: 8, detail: { type: 'diff', title: file('index.html'), added: 36, removed: 8, lines: [
+          ['ctx', '@@ -1046,6 +1046,12 @@'],
+          ['add', '    .plugin-market-grid {'],
+          ['add', '      display: grid;'],
+          ['add', '      grid-template-columns: 1fr;'],
+          ['add', '      gap: 10px;'],
+          ['add', '    }'],
+          ['ctx', '    @media (max-width: 720px) {']
+        ] } },
+        { delay: 480, tool: 'edit', summary: file('pages/settings.html'), path: true, suffix: '1KB', added: 12, removed: 3, detail: { type: 'diff', title: file('pages/settings.html'), added: 12, removed: 3, lines: [
+          ['ctx', '@@ -140,7 +140,9 @@'],
+          ['del', '        <div class="plugin-market-grid">'],
+          ['add', '        <div class="plugin-market-grid" data-layout="stack">'],
+          ['add', '          <p class="plugin-market-desc">选择插件市场来源。</p>'],
+          ['ctx', '          <button class="plugin-market-card is-selected">']
+        ] } },
+        { delay: 540, tool: 'commands', summary: 'npm run check:layout', detail: { type: 'output', title: 'npm run check:layout', text: '1470x1130  layout ok\n700x900    layout ok\nconsole   0 errors' } }
+      ];
+    }
+
+    function demoAsk(text) {
+      const quote = text.replace(/[`*]/g, '').replace(/\s+/g, ' ').trim();
+      return quote.length > 30 ? quote.slice(0, 30) + '…' : quote;
+    }
+
+    function demoFinalText() {
+      return '已按参考图把「插件配置」页重构成纵向配置布局：\n\n' +
+        '- 顶部新增「插件」标题、说明、刷新按钮，以及带下拉菜单的「添加插件」按钮。\n' +
+        '- 增加「已安装 / 插件市场」分段标签。\n' +
+        '- 「已安装」页依次展示：\n' +
+        '  - 插件市场选择卡片（`dsh-community-market` / `dsh-market`）\n' +
+        '  - 已安装插件列表（远程控制、Computer Use、OAR 子智能体）\n' +
+        '  - 内置插件配置（子智能体、网页搜索与获取、Agent 循环、终端）\n' +
+        '  - 实验性插件列表与「更多」入口\n' +
+        '- 补充了开关、市场切换、插件详情、安装确认、搜索、添加插件菜单等交互。\n' +
+        '- 移动端下市场卡片改为单列，顶部操作区自动换行。\n\n' +
+        '涉及文件：`app/index.html`、`app/pages/settings.html`。\n\n' +
+        '已在 1470×1130 和 700×900 下验证布局与交互，控制台无报错。';
+    }
+
+    function startRun(session, text) {
+      const run = {
+        id: uid(), role: 'run', status: 'running',
+        startedAt: Date.now(), endedAt: null,
+        open: false, groupOpen: false, rows: []
+      };
+      session.messages.push(run);
+      let at = 0;
+      demoRunPlan().forEach((step) => {
+        at += step.delay;
+        later(() => {
+          if (run.status !== 'running') return;
+          run.rows.forEach((row) => { if (row.state === 'running') row.state = 'ok'; });
+          const row = Object.assign({ id: uid() }, step, { state: 'running', open: false });
+          delete row.delay;
+          run.rows.push(row);
+          renderAll({ scroll: 'end' });
+        }, at);
+      });
+      at += 700;
+      later(() => {
+        if (run.status !== 'running') return;
+        run.rows.forEach((row) => { row.state = 'ok'; });
+        run.endedAt = Date.now();
+        run.status = 'done';
+        // 整轮过程默认收起；展开这一轮后直接看到完整的步骤列表。
+        run.open = false;
+        run.groupOpen = true;
+        state.sending = false;
+        session.messages.push({ id: uid(), role: 'assistant', md: true, text: demoFinalText() });
+        session.messages.push({ id: uid(), role: 'note', demo: true, text: '原型演示：步骤与耗时由本地脚本生成，没有连接模型。触发消息：' + demoAsk(text) + '。' });
+        renderAll({ scroll: 'end' });
+        // 收尾后列表回到第一条，和参考图一样从最早的工具调用往下看。
+        const body = transcript.querySelector('#' + CSS.escape(run.id + '-process'));
+        if (body) {
+          body.scrollTop = 0;
+          syncStepProcessBody(body);
+        }
+        say('已完成本轮演示');
+        composerInput.focus();
+      }, at);
+      renderAll({ scroll: 'end' });
+    }
+
     function messageHtml(message) {
       if (message.role === 'user') {
         return '<p class="bubble">' + esc(message.text) + '</p>';
       }
+      if (message.role === 'run') return runHtml(message);
       if (message.role === 'context') {
         const summary = message.items.map((item) => item.state + ' ' + item.name).join('、');
         const body = message.open
@@ -1633,26 +2996,49 @@
       }
       if (message.role === 'assistant') {
         const vote = state.feedback[message.id] || '';
-        return '<div class="od-stack"><p class="assistant">' + esc(message.text) + '</p><div class="msg-actions"><button type="button" class="icon-btn" data-action="copy" data-id="' + esc(message.id) + '" aria-label="复制">' + ICONS.copy + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="up" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'up' ? 'true' : 'false') + '" aria-label="有帮助">' + ICONS.up + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="down" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'down' ? 'true' : 'false') + '" aria-label="没帮助">' + ICONS.down + '</button></div></div>';
+        const body = message.md
+          ? '<div class="assistant-md">' + markdownHtml(message.text) + '</div>'
+          : '<p class="assistant">' + esc(message.text) + '</p>';
+        return '<div class="od-stack">' + body + '<div class="msg-actions"><button type="button" class="icon-btn" data-action="copy" data-id="' + esc(message.id) + '" aria-label="复制">' + ICONS.copy + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="up" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'up' ? 'true' : 'false') + '" aria-label="有帮助">' + ICONS.up + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="down" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'down' ? 'true' : 'false') + '" aria-label="没帮助">' + ICONS.down + '</button></div></div>';
       }
-      return '<p class="note">' + esc(message.text) + '</p>';
+      return '<p class="note' + (message.demo ? ' note--demo' : '') + '">' + esc(message.text) + '</p>';
+    }
+
+    // 过程列表自己滚动：两端渐隐属性跟着滚动位置走（ChatGroupSeat 的 fadeTop / fadeBottom）。
+    function syncStepProcessBody(body) {
+      if (!body || body.hidden) return;
+      const scrollable = body.scrollHeight - body.clientHeight > 1;
+      const atTop = body.scrollTop <= 1;
+      const atBottom = body.scrollHeight - body.clientHeight - body.scrollTop <= 1;
+      body.toggleAttribute('data-scroll-up', scrollable && !atTop);
+      body.toggleAttribute('data-scroll-down', scrollable && !atBottom);
+    }
+
+    function syncStepProcessEdges() {
+      transcript.querySelectorAll('.step-process-body').forEach(syncStepProcessBody);
     }
 
     function renderTranscript(opts) {
       const session = currentSession().session;
       const prev = document.activeElement;
       const restore = prev && prev.dataset && prev.closest('#transcript')
-        ? { action: prev.dataset.action, id: prev.dataset.id, vote: prev.dataset.vote || '' }
+        ? { action: prev.dataset.action, id: prev.dataset.id, vote: prev.dataset.vote || '', index: prev.dataset.index || '' }
         : null;
       const top = transcript.scrollTop;
       transcript.innerHTML = session
         ? '<div class="thread">' + session.messages.map(messageHtml).join('') + '</div>'
         : '';
-      if (opts && opts.scroll === 'end') transcript.scrollTop = transcript.scrollHeight;
-      else transcript.scrollTop = top;
+      if (opts && opts.scroll === 'end') {
+        transcript.scrollTop = transcript.scrollHeight;
+        transcript.querySelectorAll('.step-process-body').forEach((body) => { body.scrollTop = body.scrollHeight; });
+      } else {
+        transcript.scrollTop = top;
+      }
+      syncStepProcessEdges();
       if (restore && restore.id) {
         const voteSel = restore.vote ? '[data-vote="' + CSS.escape(restore.vote) + '"]' : '';
-        const btn = transcript.querySelector('[data-action="' + CSS.escape(restore.action) + '"][data-id="' + CSS.escape(restore.id) + '"]' + voteSel);
+        const indexSel = restore.index !== '' ? '[data-index="' + CSS.escape(restore.index) + '"]' : '';
+        const btn = transcript.querySelector('[data-action="' + CSS.escape(restore.action) + '"][data-id="' + CSS.escape(restore.id) + '"]' + indexSel + voteSel);
         if (btn) btn.focus();
       }
     }
@@ -1663,56 +3049,168 @@
       return (plugin.title + ' ' + plugin.description + ' ' + plugin.packageName + ' ' + plugin.tags.join(' ')).toLowerCase().includes(q);
     }
 
-    function pluginById(id) { return plugins.find((plugin) => plugin.id === id); }
+    function pluginById(id) { return plugins.find((plugin) => plugin.id === id) || installedPlugins.find((plugin) => plugin.id === id); }
 
-    function renderPlugins() {
-      const mount = $('plugin-mount');
-      const empty = $('plugin-empty');
-      const tabs = document.querySelectorAll('[data-action="plugin-tab"]');
-      tabs.forEach((tab) => {
-        const on = tab.dataset.tab === state.pluginTab;
-        tab.setAttribute('aria-selected', on ? 'true' : 'false');
-      });
-      if (state.view !== 'plugins') return;
-      if (state.pluginDetail) {
-        const plugin = pluginById(state.pluginDetail);
-        empty.hidden = true;
-        if (!plugin) {
-          state.pluginDetail = null;
-        } else {
-          const action = plugin.bundled
-            ? '<span class="caption">随 DSH 提供</span>'
-            : plugin.installed
-              ? '<span class="od-row"><span>' + (plugin.enabled ? '已启用' : '已停用') + '</span><button type="button" class="switch" data-action="toggle-plugin" data-plugin="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-label="启用 ' + esc(plugin.title) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button></span>'
-              : '<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>';
-          mount.innerHTML = '<article class="detail"><button type="button" class="text-btn detail-back" data-action="plugin-back">返回列表</button><h2>' + esc(plugin.title) + '</h2><p>' + esc(plugin.description) + '</p><p class="plugin-meta od-truncate" title="' + esc(plugin.packageName) + '">' + esc(plugin.packageName) + '</p><p class="caption">' + esc(plugin.version) + ' · ' + esc(plugin.author) + ' · ' + esc(plugin.source) + '</p><div class="od-rail" style="--od-rail-pad:0px">' + plugin.tags.map((tag) => '<span class="chip">' + esc(tag) + '</span>').join('') + '</div><div class="plugin-actions">' + action + '</div></article>';
-          return;
+    function pluginIconHtml(plugin) {
+      return '<span class="plugin-icon is-' + esc(plugin.tone || 'blue') + '"><span class="lucide" style="--icon: url(\'assets/icons/' + esc(plugin.icon || 'blocks') + '.svg\')" aria-hidden="true"></span></span>';
+    }
+
+    function pluginBadge(plugin) {
+      return plugin.tags.includes('实验性') ? '<span class="plugin-badge">实验性</span>' : '';
+    }
+
+    function pluginSwitchHtml(plugin) {
+      return '<button type="button" class="switch" data-action="toggle-plugin" data-plugin="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-label="' + (plugin.enabled ? '停用 ' : '启用 ') + esc(plugin.title) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>';
+    }
+
+    function pluginRowHtml(plugin) {
+      const actions = [];
+      if (plugin.installed) {
+        if (plugin.actionLabel) {
+          actions.push('<button type="button" class="secondary" data-action="' + esc(plugin.rowAction) + '" data-plugin="' + esc(plugin.id) + '">' + esc(plugin.actionLabel) + '</button>');
         }
+        actions.push(pluginSwitchHtml(plugin));
+      } else {
+        actions.push('<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>');
       }
-      const list = plugins.filter((plugin) => (state.pluginTab === 'installed' ? plugin.installed : true) && pluginMatches(plugin));
-      empty.hidden = list.length !== 0;
-      if (!list.length) {
-        mount.innerHTML = '';
+      return '<div class="plugin-row">' +
+        '<button type="button" class="plugin-row-main" data-action="plugin-open" data-plugin="' + esc(plugin.id) + '">' +
+          pluginIconHtml(plugin) +
+          '<span class="plugin-row-copy"><span class="plugin-row-title">' + esc(plugin.title) + pluginBadge(plugin) + '</span><span class="plugin-row-desc od-clamp-2">' + esc(plugin.description) + '</span></span>' +
+        '</button>' +
+        '<div class="plugin-row-actions">' + actions.join('') + '</div>' +
+      '</div>';
+    }
+
+    function builtinRowHtml(config) {
+      return '<div class="plugin-row"><button type="button" class="plugin-row-main" data-action="plugin-config-open" data-config="' + esc(config.id) + '">' +
+        pluginIconHtml(config) +
+        '<span class="plugin-row-copy"><span class="plugin-row-title">' + esc(config.title) + '</span><span class="plugin-row-desc">' + esc(config.description) + '</span></span>' +
+      '</button></div>';
+    }
+
+    function marketCardHtml(market) {
+      const selected = market.id === state.pluginMarket;
+      return '<button type="button" class="plugin-market-card' + (selected ? ' is-selected' : '') + '" data-action="choose-plugin-market" data-market="' + esc(market.id) + '" aria-pressed="' + selected + '">' +
+        '<span class="plugin-market-title">' + esc(market.name) + (market.badge ? '<span class="plugin-badge">' + esc(market.badge) + '</span>' : '') + '</span>' +
+        '<span class="plugin-market-desc">' + market.descriptionHtml + '</span>' +
+      '</button>';
+    }
+
+    function renderRichPluginDetail(plugin) {
+      const detail = plugin.detail;
+      const badges = detail.badges.map((badge) => '<span class="plugin-badge-pill' + (badge.tone ? ' is-' + esc(badge.tone) : '') + '">' + esc(badge.label) + (badge.value ? ' <strong>' + esc(badge.value) + '</strong>' : '') + '</span>').join('');
+      const features = detail.features.map((feature) => '<li>' + esc(feature) + '</li>').join('');
+      const entry = detail.entryOptions.map((option) => '<button type="button" data-action="plugin-entry-mode" data-plugin="' + esc(plugin.id) + '" data-mode="' + esc(option) + '" aria-pressed="' + (option === detail.entrySelected ? 'true' : 'false') + '">' + esc(option) + '</button>').join('');
+      const toggle = pluginSwitchHtml(plugin);
+      const status = plugin.enabled
+        ? '<span class="plugin-component-status">运行中</span>'
+        : '<span class="plugin-component-status is-off">已停用</span>';
+      $('plugin-detail-view').innerHTML = '<article class="plugin-rich-detail">' +
+        '<button type="button" class="text-btn plugin-detail-back" data-action="plugin-back"><span class="lucide icon-16" style="--icon: url(\'assets/icons/chevron-left.svg\')" aria-hidden="true"></span><span>返回插件列表</span></button>' +
+        '<div class="plugin-rich-top">' +
+          '<span class="plugin-icon is-' + esc(plugin.tone) + ' plugin-rich-icon"><span class="lucide" style="--icon: url(\'assets/icons/' + esc(plugin.icon) + '.svg\')" aria-hidden="true"></span></span>' +
+          '<div class="plugin-rich-actions">' +
+            '<button type="button" class="plugin-uninstall" data-action="ask-uninstall" data-plugin="' + esc(plugin.id) + '"><span class="lucide icon-16" style="--icon: url(\'assets/icons/trash-2.svg\')" aria-hidden="true"></span><span>卸载</span></button>' +
+            toggle +
+          '</div>' +
+        '</div>' +
+        '<div class="plugin-rich-title-row"><h2>' + esc(plugin.title) + '</h2><span class="plugin-version-chip">v' + esc(plugin.version) + '</span></div>' +
+        '<p class="plugin-rich-package">' + esc(plugin.packageName) + '</p>' +
+        '<p class="plugin-rich-tagline">' + esc(plugin.description) + '</p>' +
+        '<div class="plugin-rich-rule"></div>' +
+        '<div class="plugin-readme">' +
+          '<h3>' + esc(detail.name) + '</h3>' +
+          '<p class="plugin-readme-lead">' + esc(detail.lead) + '</p>' +
+          '<p class="plugin-readme-links">' + esc(detail.languages) + '</p>' +
+          '<p class="plugin-readme-links">' + esc(detail.links) + '</p>' +
+          '<div class="plugin-badges">' + badges + '</div>' +
+          '<blockquote>' + esc(detail.disclaimer) + '</blockquote>' +
+          '<h3>' + esc(detail.featuresTitle) + '</h3>' +
+          '<p>' + esc(detail.featuresIntro) + '</p>' +
+          '<ul>' + features + '</ul>' +
+          '<div class="plugin-entry-row">' +
+            '<div><h4>' + esc(detail.entryTitle) + '</h4><p>' + esc(detail.entryHelp) + '</p></div>' +
+            '<div class="plugin-segmented" role="group" aria-label="入口展示位置">' + entry + '</div>' +
+          '</div>' +
+          '<div class="plugin-component-head"><span>包含的组件</span><span>共 1 个 · 1 运行中</span></div>' +
+          '<div class="plugin-component-row">' +
+            pluginIconHtml(plugin) +
+            '<div class="plugin-row-copy"><span class="plugin-row-title">' + esc(plugin.title) + '</span><span class="plugin-row-desc">' + esc(detail.componentDescription) + '</span><span class="plugin-row-meta">' + esc(detail.componentId) + '</span><span class="plugin-row-meta">' + esc(detail.componentPackage) + '</span></div>' +
+            status + toggle +
+          '</div>' +
+          '<div class="plugin-version-head"><h4>版本</h4><button type="button" class="plugin-recheck" data-action="plugin-recheck" data-plugin="' + esc(plugin.id) + '"><span class="lucide icon-16" style="--icon: url(\'assets/icons/refresh-cw.svg\')" aria-hidden="true"></span><span>重新检查</span></button></div>' +
+          '<div class="plugin-latest"><span class="plugin-latest-icon"><span class="lucide icon-16" style="--icon: url(\'assets/icons/check.svg\')" aria-hidden="true"></span></span><span class="plugin-latest-copy"><strong>已是最新版本</strong><span>' + esc(detail.checked) + '</span></span></div>' +
+          '<div class="plugin-source-info"><h4>来源信息</h4><div class="plugin-source-row"><span>代码来源</span><code>' + esc(plugin.packageName) + '@' + esc(plugin.version) + '</code></div><div class="plugin-source-row"><span>当前版本</span><span>' + esc(plugin.version) + '</span></div></div>' +
+        '</div>' +
+      '</article>';
+    }
+
+    function renderPluginDetail(plugin) {
+      if (plugin.detail) {
+        renderRichPluginDetail(plugin);
         return;
       }
-      mount.innerHTML = '<div class="plugin-grid">' + list.map((plugin) => {
-        const trailing = state.pluginTab === 'installed'
-          ? (plugin.bundled
-            ? '<span class="caption">随 DSH 提供</span>'
-            : '<button type="button" class="switch" data-action="toggle-plugin" data-plugin="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-label="' + (plugin.enabled ? '停用 ' : '启用 ') + esc(plugin.title) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>')
-          : (plugin.installed
-            ? '<button type="button" class="secondary" data-action="show-installed" data-plugin="' + esc(plugin.id) + '">已安装</button>'
-            : '<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>');
-        return '<article class="plugin-card"><button type="button" class="plugin-open" data-action="plugin-open" data-plugin="' + esc(plugin.id) + '"><span class="plugin-title">' + esc(plugin.title) + '</span><span class="plugin-desc od-clamp-2">' + esc(plugin.description) + '</span><span class="plugin-meta od-truncate">' + esc(plugin.packageName) + '</span></button><div class="od-rail" style="--od-rail-pad:0px">' + plugin.tags.map((tag) => '<span class="chip">' + esc(tag) + '</span>').join('') + '</div><div class="plugin-actions"><span class="caption">' + esc(plugin.version) + '</span>' + trailing + '</div></article>';
-      }).join('') + '</div>';
+      const actions = [];
+      if (plugin.installed) {
+        if (plugin.actionLabel) actions.push('<button type="button" class="secondary" data-action="' + esc(plugin.rowAction) + '" data-plugin="' + esc(plugin.id) + '">' + esc(plugin.actionLabel) + '</button>');
+        actions.push(pluginSwitchHtml(plugin));
+      } else {
+        actions.push('<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>');
+      }
+      const tags = plugin.tags.map((tag) => '<span class="plugin-badge">' + esc(tag) + '</span>').join('');
+      $('plugin-detail-view').innerHTML = '<article class="plugin-detail">' +
+        '<button type="button" class="text-btn plugin-detail-back" data-action="plugin-back"><span class="lucide icon-16" style="--icon: url(\'assets/icons/chevron-left.svg\')" aria-hidden="true"></span><span>返回列表</span></button>' +
+        '<div class="plugin-detail-head">' + pluginIconHtml(plugin) + '<div><h2>' + esc(plugin.title) + '</h2><p class="caption">' + esc(plugin.description) + '</p></div></div>' +
+        '<p class="plugin-meta od-truncate" title="' + esc(plugin.packageName) + '">' + esc(plugin.packageName) + '</p>' +
+        '<p class="caption">' + esc(plugin.version) + ' · ' + esc(plugin.author) + ' · ' + esc(plugin.source) + '</p>' +
+        '<div class="plugin-detail-tags">' + tags + '</div>' +
+        '<div class="plugin-detail-actions">' + actions.join('') + '</div>' +
+      '</article>';
+    }
+
+    function renderPlugins() {
+      const detail = state.pluginDetail ? pluginById(state.pluginDetail) : null;
+      if (state.pluginDetail && !detail) state.pluginDetail = null;
+      const showDetail = !!detail;
+      document.querySelectorAll('[data-action="plugin-tab"]').forEach((tab) => {
+        tab.setAttribute('aria-selected', tab.dataset.tab === state.pluginTab ? 'true' : 'false');
+      });
+      $('plugin-installed-view').hidden = showDetail || state.pluginTab !== 'installed';
+      $('plugin-market-view').hidden = showDetail || state.pluginTab !== 'market';
+      $('plugin-detail-view').hidden = !showDetail;
+      $('plugin-page-head').hidden = showDetail;
+      if (showDetail) {
+        renderPluginDetail(detail);
+        return;
+      }
+      if (state.pluginTab === 'installed') {
+        $('plugin-market-options').innerHTML = pluginMarkets.map(marketCardHtml).join('');
+        $('plugin-installed-list').innerHTML = plugins.filter((plugin) => plugin.installed && plugin.group === 'installed').map(pluginRowHtml).join('');
+        $('plugin-builtin-list').innerHTML = builtinPluginConfigs.map(builtinRowHtml).join('');
+        $('plugin-installed-owned-list').innerHTML = installedPlugins.length
+          ? installedPlugins.map(pluginRowHtml).join('')
+          : '<p class="empty">还没有安装插件。</p>';
+        $('plugin-experimental-list').innerHTML = plugins.filter((plugin) => plugin.installed && plugin.group === 'experimental').map(pluginRowHtml).join('');
+        return;
+      }
+      const list = plugins.filter((plugin) => !plugin.installed && pluginMatches(plugin));
+      const empty = $('plugin-empty');
+      empty.textContent = state.query.trim()
+        ? '没有匹配的插件。换个词，或清空搜索后再看。'
+        : '插件市场里暂时没有可安装的插件。';
+      empty.hidden = list.length !== 0;
+      $('plugin-market-list').innerHTML = list.map(pluginRowHtml).join('');
     }
 
     function roleLabel(role) {
-      return { user: '用户消息', context: '上下文注入', think: '思考', assistant: '回复', note: '状态' }[role] || role;
+      return { user: '用户消息', context: '上下文注入', think: '思考', run: '运行过程', assistant: '回复', note: '状态' }[role] || role;
     }
 
     function messageSummary(message) {
       if (message.role === 'context') return message.items.map((item) => item.name).join('、');
+      if (message.role === 'run') return message.rows.length + ' 个步骤 · ' + processTitle(message.rows);
+      if (message.role === 'assistant' && message.md) return message.text.replace(/[`*]/g, '').replace(/\s+/g, ' ');
       return message.text;
     }
 
@@ -1746,38 +3244,53 @@
       const usage = deriveUsage(session);
       const stats = $('stats');
       const heroMode = state.view !== 'conversation' || !session || session.messages.length === 0;
-      if (heroMode || !usage) {
-        stats.hidden = true;
-        stats.textContent = '';
+      if (heroMode || !usage || !stats) {
+        if (stats) { stats.hidden = true; stats.innerHTML = ''; }
         return;
       }
+      const tokens = (2.4 + (usage.steps % 4) * 0.1).toFixed(1);
+      const speed = 196 + (usage.steps * 7) % 32;
+      const hit = 96 + usage.turns % 3;
+      const context = 9 + usage.turns % 12;
       stats.hidden = false;
-      stats.textContent = usage.turns + ' 轮 · ' + usage.steps + ' 步 · 输入 ' + usage.input + ' 字符 · 输出 ' + usage.output + ' 字符 · 本地示例';
+      stats.innerHTML = '<span class="stat-pill"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-clock"/></svg>' + usage.turns + ' 轮 ' + usage.steps + ' 步 · ' + speed + ' tok/s</span>'
+        + '<span class="stat-pill"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-database"/></svg>' + tokens + 'M tok · 缓存命中 ' + hit + '%</span>'
+        + '<span class="stat-pill"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-gauge"/></svg>' + context + '%</span>';
     }
 
     function syncComposerWorkspace() {
       const menu = $('composer-workspace-menu');
       const trigger = $('composer-workspace');
+      if (!menu || !trigger) return;
       const ids = state.workspaces.map((ws) => ws.id).join('\n');
       if (menu.dataset.ids !== ids) {
         menu.dataset.ids = ids;
         menu.innerHTML = state.workspaces.map((ws) => {
           const on = ws.id === state.activeWorkspace;
-          return '<button type="button" class="picker-option" role="option" data-value="' + esc(ws.id) + '" aria-selected="' + (on ? 'true' : 'false') + '"><span class="picker-label">' + esc(ws.name) + '</span>' + CHECK_ICON + '</button>';
+          return '<button type="button" class="picker-option" role="option" data-value="' + esc(ws.id) + '" aria-selected="' + (on ? 'true' : 'false') + '">'
+            + '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-folder-' + (on ? 'open' : 'close') + '"/></svg>'
+            + '<span class="picker-label">' + esc(ws.name) + '</span>' + CHECK_ICON + '</button>';
         }).join('');
       } else {
         menu.querySelectorAll('[role="option"]').forEach((item) => {
-          item.setAttribute('aria-selected', item.dataset.value === state.activeWorkspace ? 'true' : 'false');
+          const on = item.dataset.value === state.activeWorkspace;
+          item.setAttribute('aria-selected', on ? 'true' : 'false');
+          const use = item.querySelector('use');
+          if (use) use.setAttribute('href', on ? '#i-folder-open' : '#i-folder-close');
         });
       }
       const current = state.workspaces.find((ws) => ws.id === state.activeWorkspace);
       trigger.querySelector('.picker-value').textContent = current ? current.name : '';
+      const use = trigger.querySelector('.chip-icon use');
+      if (use) use.setAttribute('href', '#i-folder-open');
     }
 
     function syncSend() {
       const idle = !state.sending && !composerInput.value.trim();
       sendBtn.classList.toggle('is-idle', idle);
-      sendBtn.innerHTML = state.sending ? ICONS.stop : ICONS.send;
+      sendBtn.innerHTML = state.sending
+        ? '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-stop"/></svg>'
+        : '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-send"/></svg>';
       sendBtn.setAttribute('aria-label', state.sending ? '停止生成' : '发送消息');
       composerInput.disabled = state.sending;
     }
@@ -1912,7 +3425,6 @@
       const heroMode = state.view === 'conversation' && (!session || session.messages.length === 0);
       placeComposer(heroMode);
       viewConversation.hidden = state.view !== 'conversation';
-      viewPlugins.hidden = state.view !== 'plugins';
       viewMessages.hidden = state.view !== 'messages';
       viewConversation.classList.toggle('is-chat', !heroMode && state.view === 'conversation');
       hero.hidden = !heroMode;
@@ -1920,22 +3432,27 @@
       if (suggest) suggest.hidden = !heroMode || !state.homeSuggest;
       transcript.hidden = heroMode || state.view !== 'conversation';
       dock.hidden = heroMode || state.view !== 'conversation';
-      $('session-tools').hidden = state.view !== 'conversation';
-      const menuPlugins = $('menu-plugins');
-      if (state.view === 'plugins') {
-        menuPlugins.setAttribute('aria-current', 'page');
-        $('workspace-kicker').textContent = '插件';
-        $('view-title').textContent = state.pluginTab === 'installed' ? '已安装' : '发现';
-      } else {
-        menuPlugins.removeAttribute('aria-current');
-        $('workspace-kicker').textContent = found.ws.name;
-        $('view-title').textContent = session ? session.title : '新会话';
-      }
+      const sessionTools = $('session-tools');
+      if (sessionTools) sessionTools.hidden = state.view !== 'conversation';
+      $('view-title').textContent = session ? session.title : '新会话';
+      const taskChip = $('task-chip');
+      if (taskChip) taskChip.hidden = !state.sending;
+      document.querySelectorAll('#session-tabs .tab').forEach((tab) => {
+        const isMore = tab.classList.contains('tab-more');
+        const active = state.inspector === null
+          ? tab.dataset.action === 'tab-conversation'
+          : isMore ? state.inspector === 'log' : tab.dataset.inspector === state.inspector;
+        tab.classList.toggle('is-active', active);
+      });
+      const presetText = $('preset-label-text');
+      if (presetText) presetText.textContent = state.preset;
       composer.classList.toggle('is-hero', heroMode);
       $('main').classList.toggle('is-home', heroMode);
       $('main').classList.toggle('is-plain', state.view === 'messages');
       syncComposerWorkspace();
-      composerInput.placeholder = heroMode ? '描述你想要构建的内容' : '给智能体发消息';
+      composerInput.placeholder = heroMode
+        ? '描述你想要构建的内容, / 调用指令, @ 文件或对话'
+        : '发消息或创建任务, / 调用指令, @ 文件或对话';
       const narrow = narrowQuery.matches;
       app.classList.toggle('is-rail', !narrow && state.rail);
       app.classList.toggle('is-drawer', narrow && state.drawer);
@@ -1988,19 +3505,6 @@
       return session;
     }
 
-    function finishTurn(session, text) {
-      if (!state.sending) return;
-      const quote = text.length > 80 ? text.slice(0, 80) + '…' : text;
-      const reply = state.access === 'full'
-        ? '这是本地模拟回复，没有连接 ' + state.model + '。权限是 ' + accessLabel() + '。你说：「' + quote + '」。'
-        : '这是本地模拟回复，没有连接 ' + state.model + '。当前权限是只读，不会描述写入文件。你说：「' + quote + '」。';
-      session.messages.push({ id: uid(), role: 'assistant', text: reply });
-      state.sending = false;
-      renderAll({ scroll: 'end' });
-      say('已写入本地回复');
-      composerInput.focus();
-    }
-
     function send() {
       const text = composerInput.value.trim();
       if (!text || state.sending) return;
@@ -2009,39 +3513,35 @@
         const line = text.split('\n')[0].trim();
         session.title = line.length > 24 ? line.slice(0, 24) + '…' : line;
       }
-      const ws = currentWorkspace();
       session.messages.push({ id: uid(), role: 'user', text: text });
       composerInput.value = '';
       grow();
       state.sending = true;
       renderAll({ scroll: 'end' });
-      const thinkId = uid();
-      later(() => {
-        if (!state.sending) return;
-        session.messages.push({
-          id: thinkId,
-          role: 'think',
-          open: true,
-          text: '工作区是「' + ws.name + '」。模型是 ' + state.model + '，权限是 ' + accessLabel() + '。这一轮不调用工具。'
-        });
-        session.messages.push({
-          id: uid(),
-          role: 'context',
-          open: false,
-          items: [{ name: '当前输入', state: '已新增' }],
-          note: '示例记录，没有读取工作区文件。'
-        });
-        renderAll({ scroll: 'end' });
-      }, 320);
-      later(() => finishTurn(session, text), 720);
+      startRun(session, text);
+      say('智能体正在运行');
     }
 
     function stopTurn() {
       clearTimers();
       if (!state.sending) return;
       state.sending = false;
-      const session = currentSession().session;
-      if (session) session.messages.push({ id: uid(), role: 'note', text: '已停止' });
+      let run = null;
+      state.workspaces.forEach((ws) => {
+        ws.sessions.forEach((session) => {
+          session.messages.forEach((message) => {
+            if (message.role === 'run' && message.status === 'running') run = message;
+          });
+        });
+      });
+      if (run) {
+        run.status = 'stopped';
+        run.endedAt = Date.now();
+        run.rows.forEach((row) => { row.state = 'ok'; });
+        // 停止的轮次同样先收起整轮，展开后能直接看到已经跑过的步骤。
+        run.open = false;
+        run.groupOpen = true;
+      }
       renderAll({ scroll: 'end' });
       composerInput.focus();
     }
@@ -2053,12 +3553,27 @@
       if (auto) auto.focus();
     }
 
-    function openSettings(opener) {
+    function setSettingsTab(tab) {
+      if (state.editing) commitField(state.editing);
+      const changed = state.settingsTab !== tab;
+      state.settingsTab = tab;
+      if (changed) state.pluginDetail = null;
+      syncSettingsTabs();
+      if (tab === 'plugins') renderPlugins();
+      const body = document.querySelector('#settings .settings-body');
+      if (body) body.scrollTop = 0;
+      const current = document.querySelector('#settings .set-nav[data-tab="' + tab + '"]');
+      if (current) current.focus({ preventScroll: true });
+    }
+
+    function openSettings(opener, tab) {
+      if (tab) state.settingsTab = tab;
       syncModes();
       syncBrowser();
       syncNotify();
       syncSettingsTabs();
       syncPersona();
+      renderPlugins();
       applyTheme(state.theme);
       $('settings-model').textContent = state.model;
       showDialog($('settings'), opener);
@@ -2088,6 +3603,22 @@
       $('menu-app').setAttribute('aria-expanded', 'false');
     }
 
+    function closePluginAddMenu() {
+      const menu = $('plugin-add-menu');
+      if (!menu || menu.hidden) return;
+      menu.hidden = true;
+      $('plugin-add-toggle').setAttribute('aria-expanded', 'false');
+    }
+
+    function openPluginAddMenu() {
+      const menu = $('plugin-add-menu');
+      if (!menu) return;
+      menu.hidden = false;
+      $('plugin-add-toggle').setAttribute('aria-expanded', 'true');
+      const first = menu.querySelector('[role="menuitem"]');
+      if (first) first.focus();
+    }
+
     function placeMenu(trigger, menu) {
       const rect = trigger.getBoundingClientRect();
       menu.style.minWidth = Math.max(rect.width, 180) + 'px';
@@ -2095,7 +3626,7 @@
       const menuHeight = menuRect.height;
       const menuWidth = menuRect.width;
       const spaceBelow = window.innerHeight - rect.bottom;
-      const openUp = spaceBelow < menuHeight + 16 && rect.top > menuHeight + 16;
+      const openUp = rect.top > menuHeight + 16;
       let left = trigger.closest('.composer-end') ? rect.right - menuWidth : rect.left;
       left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
       const top = openUp
@@ -2127,7 +3658,18 @@
       trigger.querySelector('.picker-value').textContent = label ? label.textContent : '';
       closePickers();
       const value = option.dataset.value;
-      if (trigger.id === 'access') state.access = value;
+      if (trigger.id === 'access') {
+        state.access = value;
+        const icons = { full: '#i-perm-full', workspace: '#i-perm-workspace', read: '#i-perm-readonly', auto: '#i-perm-auto' };
+        const accessIcon = $('access-icon');
+        if (accessIcon) accessIcon.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><use href="' + (icons[value] || icons.full) + '"/></svg>';
+        trigger.setAttribute('aria-label', '访问模式，当前：' + (label ? label.textContent : ''));
+      }
+      if (trigger.id === 'preset') {
+        state.preset = value;
+        const presetText = $('preset-label-text');
+        if (presetText) presetText.textContent = value;
+      }
       if (trigger.id === 'model') {
         state.model = value;
         $('settings-model').textContent = value;
@@ -2138,8 +3680,7 @@
       }
       if (trigger.id === 'composer-workspace') {
         state.activeWorkspace = value;
-        const ws = currentWorkspace();
-        state.activeSession = ws.sessions[0] ? ws.sessions[0].id : null;
+        state.activeSession = null;
         state.view = 'conversation';
         state.inspector = null;
         renderAll();
@@ -2161,6 +3702,7 @@
       }
       closePickers();
       if (!event.target.closest('.app-menu')) closeAppMenu();
+      if (!event.target.closest('.plugin-add')) closePluginAddMenu();
       const btn = event.target.closest('[data-action]');
       if (!btn) return;
       const action = btn.dataset.action;
@@ -2206,33 +3748,22 @@
         return;
       }
       if (action === 'open-workspace') {
-        state.activeWorkspace = btn.dataset.workspace;
-        const ws = currentWorkspace();
-        state.activeSession = ws.sessions[0] ? ws.sessions[0].id : null;
+        const id = btn.dataset.workspace;
+        state.collapsed[id] = !state.collapsed[id];
+        if (state.activeSession === null) state.activeWorkspace = id;
         state.view = 'conversation';
+        state.inspector = null;
         if (narrowQuery.matches) state.drawer = false;
-        renderAll({ scroll: 'end' });
+        renderAll();
         return;
       }
       if (action === 'open-session') {
         state.activeWorkspace = btn.dataset.workspace;
         state.activeSession = btn.dataset.session;
         state.view = 'conversation';
+        state.inspector = null;
         if (narrowQuery.matches) state.drawer = false;
         renderAll({ scroll: 'end' });
-        return;
-      }
-      if (action === 'open-plugins' || action === 'goto-plugins') {
-        if ($('settings').open) $('settings').close();
-        state.view = 'plugins';
-        state.inspector = null;
-        if (action === 'goto-plugins') {
-          state.pluginTab = 'discover';
-          state.pluginDetail = null;
-        }
-        if (narrowQuery.matches) state.drawer = false;
-        renderAll();
-        $('view-title').focus();
         return;
       }
       if (action === 'open-messages') {
@@ -2248,10 +3779,17 @@
         return;
       }
       if (action === 'open-settings') {
-        openSettings(btn);
+        openSettings(btn, btn.dataset.tab);
         return;
       }
       if (action === 'close-settings') {
+        if (!$('uninstall-layer').hidden) {
+          $('uninstall-layer').hidden = true;
+          state.pendingUninstall = null;
+          const opener = document.querySelector('[data-action="ask-uninstall"]');
+          if (opener) opener.focus();
+          return;
+        }
         if (!$('lan-layer').hidden) {
           $('lan-layer').hidden = true;
           return;
@@ -2286,9 +3824,14 @@
         return;
       }
       if (action === 'settings-tab') {
-        if (state.editing) commitField(state.editing);
-        state.settingsTab = btn.dataset.tab;
-        syncSettingsTabs();
+        setSettingsTab(btn.dataset.tab);
+        return;
+      }
+      if (action === 'tab-conversation') {
+        state.inspector = null;
+        state.view = 'conversation';
+        renderInspector();
+        syncChrome();
         return;
       }
       if (action === 'open-inspector') {
@@ -2302,13 +3845,28 @@
       if (action === 'close-inspector') {
         state.inspector = null;
         renderInspector();
-        document.querySelector('[data-inspector="trajectory"]').focus();
+        syncChrome();
+        const tab = document.querySelector('[data-inspector="trajectory"]');
+        if (tab) tab.focus();
         return;
       }
       if (action === 'toggle-context' || action === 'toggle-think') {
         const session = currentSession().session;
         const message = session && session.messages.find((item) => item.id === btn.dataset.id);
         if (message) message.open = !message.open;
+        renderTranscript();
+        return;
+      }
+      if (action === 'toggle-turn' || action === 'toggle-process' || action === 'toggle-run-row') {
+        const session = currentSession().session;
+        const run = session && session.messages.find((message) => message.role === 'run' && message.id === btn.dataset.id);
+        if (!run) return;
+        if (action === 'toggle-turn') run.open = run.open !== true;
+        else if (action === 'toggle-process') run.groupOpen = run.groupOpen !== true;
+        else {
+          const row = run.rows[Number(btn.dataset.index)];
+          if (row) row.open = !row.open;
+        }
         renderTranscript();
         return;
       }
@@ -2329,20 +3887,129 @@
         return;
       }
       if (action === 'attach') {
-        toast('这个原型不能添加文件');
+        const menu = $('command-menu');
+        if (!menu) return;
+        if (!menu.hidden) { closePickers(); return; }
+        closePickers();
+        menu.hidden = false;
+        placeMenu(btn, menu);
+        const height = menu.getBoundingClientRect().height;
+        menu.style.top = Math.max(8, btn.getBoundingClientRect().top - height - 8) + 'px';
+        return;
+      }
+      if (action === 'command-note') {
+        closePickers();
+        toast(btn.dataset.note || '这个原型不能打开系统选择器');
         return;
       }
       if (action === 'send-click') return;
+      if (action === 'plugin-refresh') {
+        renderPlugins();
+        toast('插件列表已刷新');
+        return;
+      }
+      if (action === 'plugin-info') {
+        toast('在这里安装、启用和配置插件');
+        return;
+      }
+      if (action === 'plugin-add') {
+        toast('添加插件入口在真实客户端中打开');
+        return;
+      }
+      if (action === 'toggle-add-menu') {
+        if ($('plugin-add-menu').hidden) openPluginAddMenu();
+        else {
+          closePluginAddMenu();
+          $('plugin-add-toggle').focus();
+        }
+        return;
+      }
+      if (action === 'plugin-add-note') {
+        closePluginAddMenu();
+        $('plugin-add-toggle').focus();
+        toast(btn.dataset.kind === 'agent' ? 'Agent 创造模式在真实客户端中打开' : '安装第三方插件入口在真实客户端中打开');
+        return;
+      }
+      if (action === 'choose-plugin-market') {
+        state.pluginMarket = btn.dataset.market;
+        const market = pluginMarkets.find((item) => item.id === state.pluginMarket);
+        renderPlugins();
+        const next = document.querySelector('[data-action="choose-plugin-market"][data-market="' + CSS.escape(state.pluginMarket) + '"]');
+        if (next) next.focus();
+        toast('已启用 ' + (market ? market.name : '插件市场'));
+        return;
+      }
+      if (action === 'plugin-open-panel' || action === 'plugin-permissions') {
+        const plugin = pluginById(btn.dataset.plugin);
+        toast((plugin ? '「' + plugin.title + '」' : '') + (action === 'plugin-open-panel' ? '面板在侧边栏中打开' : '权限设置在真实客户端中打开'));
+        return;
+      }
+      if (action === 'plugin-config-open') {
+        const config = builtinPluginConfigs.find((item) => item.id === btn.dataset.config);
+        toast(config ? '「' + config.title + '」配置在真实客户端中打开' : '配置面板在真实客户端中打开');
+        return;
+      }
+      if (action === 'plugin-more-experimental') {
+        toast('原型里只展示这些实验性插件');
+        return;
+      }
+      if (action === 'plugin-entry-mode') {
+        const plugin = pluginById(btn.dataset.plugin);
+        if (!plugin || !plugin.detail) return;
+        plugin.detail.entrySelected = btn.dataset.mode;
+        renderPlugins();
+        const next = document.querySelector('[data-action="plugin-entry-mode"][data-plugin="' + CSS.escape(plugin.id) + '"][data-mode="' + CSS.escape(btn.dataset.mode) + '"]');
+        if (next) next.focus();
+        return;
+      }
+      if (action === 'plugin-recheck') {
+        const plugin = pluginById(btn.dataset.plugin);
+        toast(plugin ? '「' + plugin.title + '」已是最新版本' : '已是最新版本');
+        return;
+      }
+      if (action === 'ask-uninstall') {
+        const plugin = pluginById(btn.dataset.plugin);
+        if (!plugin) return;
+        state.pendingUninstall = plugin.id;
+        $('uninstall-title').textContent = '卸载「' + plugin.title + '」？';
+        $('uninstall-layer').hidden = false;
+        const cancel = $('uninstall-layer').querySelector('[data-action="uninstall-cancel"]');
+        if (cancel) cancel.focus();
+        return;
+      }
+      if (action === 'uninstall-cancel') {
+        $('uninstall-layer').hidden = true;
+        const opener = document.querySelector('[data-action="ask-uninstall"]');
+        if (opener) opener.focus();
+        return;
+      }
+      if (action === 'uninstall-confirm') {
+        const id = state.pendingUninstall;
+        const index = installedPlugins.findIndex((plugin) => plugin.id === id);
+        $('uninstall-layer').hidden = true;
+        state.pendingUninstall = null;
+        if (index >= 0) installedPlugins.splice(index, 1);
+        state.pluginDetail = null;
+        renderPlugins();
+        toast('已卸载');
+        const nav = document.querySelector('#settings .set-nav[data-tab="plugins"]');
+        if (nav) nav.focus();
+        return;
+      }
       if (action === 'plugin-tab') {
         state.pluginTab = btn.dataset.tab;
         state.pluginDetail = null;
         renderPlugins();
+        const body = document.querySelector('#settings .settings-body');
+        if (body) body.scrollTop = 0;
         syncChrome();
         return;
       }
       if (action === 'plugin-open') {
         state.pluginDetail = btn.dataset.plugin;
         renderPlugins();
+        const body = document.querySelector('#settings .settings-body');
+        if (body) body.scrollTop = 0;
         const back = document.querySelector('[data-action="plugin-back"]');
         if (back) back.focus();
         return;
@@ -2375,6 +4042,7 @@
         if (!plugin) return;
         plugin.installed = true;
         plugin.enabled = true;
+        plugin.group = 'installed';
         state.pluginDetail = plugin.id;
         state.pluginTab = 'installed';
         renderPlugins();
@@ -2384,18 +4052,13 @@
         say(plugin.title + ' 已安装');
         return;
       }
-      if (action === 'show-installed') {
-        state.pluginTab = 'installed';
-        state.pluginDetail = btn.dataset.plugin;
-        renderPlugins();
-        syncChrome();
-        return;
-      }
       if (action === 'toggle-plugin') {
         const plugin = pluginById(btn.dataset.plugin);
-        if (!plugin || plugin.bundled) return;
+        if (!plugin) return;
         plugin.enabled = !plugin.enabled;
         renderPlugins();
+        const next = document.querySelector('[data-action="toggle-plugin"][data-plugin="' + CSS.escape(plugin.id) + '"]');
+        if (next) next.focus();
         toast(plugin.enabled ? '已启用' : '已停用');
         return;
       }
@@ -2531,6 +4194,14 @@
         if (owner) owner.focus();
         return;
       }
+      if (!$('uninstall-layer').hidden) {
+        event.preventDefault();
+        $('uninstall-layer').hidden = true;
+        state.pendingUninstall = null;
+        const opener = document.querySelector('[data-action="ask-uninstall"]');
+        if (opener) opener.focus();
+        return;
+      }
       if (!$('lan-layer').hidden) {
         event.preventDefault();
         $('lan-layer').hidden = true;
@@ -2538,6 +4209,9 @@
     });
     $('settings').addEventListener('close', () => {
       $('lan-layer').hidden = true;
+      $('uninstall-layer').hidden = true;
+      state.pendingUninstall = null;
+      closePluginAddMenu();
       if (state.opener && state.opener.isConnected) {
         const back = state.opener;
         state.opener = null;
@@ -2579,6 +4253,9 @@
       if (menu && !menu.hidden) placeMenu(trigger, menu);
     }, true);
 
+    // 过程列表内部滚动时重新计算两端渐隐。
+    transcript.addEventListener('scroll', () => { syncStepProcessEdges(); }, true);
+
     document.addEventListener('keydown', (event) => {
       const openMenu = document.querySelector('.picker-menu:not([hidden])');
       if (openMenu && event.key === 'Escape') {
@@ -2614,6 +4291,12 @@
       if ((event.ctrlKey || event.metaKey) && event.key === ',') {
         event.preventDefault();
         if (!$('settings').open) openSettings(document.activeElement);
+      }
+      if (event.key === 'Escape' && !$('plugin-add-menu').hidden) {
+        event.preventDefault();
+        closePluginAddMenu();
+        $('plugin-add-toggle').focus();
+        return;
       }
       if (event.key === 'Escape' && !$('app-menu').hidden) {
         event.preventDefault();
@@ -2653,6 +4336,13 @@
     renderAll();
     grow();
     composerInput.focus();
+
+    // 直接看演示：index.html?demo=run 会预填一条消息并走完整个过程。
+    if (new URLSearchParams(window.location.search).get('demo') === 'run') {
+      composerInput.value = '按参考图把「插件配置」页重构成纵向配置布局';
+      grow();
+      send();
+    }
   </script>
 </body>
 </html>

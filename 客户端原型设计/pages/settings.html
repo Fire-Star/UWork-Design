@@ -61,6 +61,11 @@
           <span class="lucide icon-16" style="--icon: url('assets/icons/database.svg')" aria-hidden="true"></span>
           <span>数据管理</span>
         </button>
+        <p class="settings-group">开发者</p>
+        <button type="button" class="set-nav" data-action="settings-tab" data-tab="plugins" aria-selected="false">
+          <span class="lucide icon-16" style="--icon: url('assets/icons/puzzle.svg')" aria-hidden="true"></span>
+          <span>插件配置</span>
+        </button>
       </nav>
       <div class="settings-main">
         <button type="button" class="icon-btn settings-close" data-action="close-settings" aria-label="关闭设置">
@@ -288,8 +293,8 @@
           <div class="settings-panel" data-settings-panel="agents" hidden>
             <section class="set-card">
               <h3>智能体</h3>
-              <p class="caption">当前智能体是 DSH。插件里的智能体在插件市场安装后出现。</p>
-              <button type="button" class="secondary" data-action="goto-plugins">前往插件市场</button>
+              <p class="caption">当前智能体是 DSH。插件里的智能体在「插件配置」中安装后出现。</p>
+              <button type="button" class="secondary" data-action="settings-tab" data-tab="plugins">打开插件配置</button>
             </section>
           </div>
 
@@ -317,8 +322,8 @@
             <section class="set-card">
               <h3>浏览器与局域网</h3>
               <p class="caption">允许在浏览器中打开当前 Profile，并选择可访问的设备范围。</p>
-              <p class="caption">插件在主菜单的「插件市场」里安装和启用。</p>
-              <button type="button" class="secondary" data-action="goto-plugins">打开插件市场</button>
+              <p class="caption">插件在「插件配置」里安装和启用。</p>
+              <button type="button" class="secondary" data-action="settings-tab" data-tab="plugins">打开插件配置</button>
               <label class="search">
                 <span>本地端口</span>
                 <input id="port" class="text-input" inputmode="numeric" value="43120" aria-describedby="port-help port-error">
@@ -384,6 +389,96 @@
               <p class="status" id="log-status" role="status"></p>
             </section>
           </div>
+
+          <div class="settings-panel plugin-config" data-settings-panel="plugins" hidden>
+            <header class="plugin-page-head" id="plugin-page-head">
+              <div class="plugin-page-copy">
+                <div class="plugin-page-title-row">
+                  <h3 id="plugin-config-title">插件</h3>
+                  <button type="button" class="icon-btn plugin-info" data-action="plugin-info" aria-label="关于插件">
+                    <span class="lucide icon-16" style="--icon: url('assets/icons/info.svg')" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <p class="caption">安装、启用和配置插件</p>
+              </div>
+              <div class="plugin-page-actions">
+                <button type="button" class="secondary plugin-refresh" data-action="plugin-refresh">
+                  <span class="lucide icon-16" style="--icon: url('assets/icons/refresh-cw.svg')" aria-hidden="true"></span>
+                  <span>刷新</span>
+                </button>
+                <div class="plugin-add">
+                  <button type="button" class="plugin-add-main" data-action="plugin-add">
+                    <span class="lucide icon-16" style="--icon: url('assets/icons/plus.svg')" aria-hidden="true"></span>
+                    <span>添加插件</span>
+                  </button>
+                  <button type="button" class="plugin-add-toggle" id="plugin-add-toggle" data-action="toggle-add-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="plugin-add-menu" aria-label="更多添加方式">
+                    <span class="lucide icon-16" style="--icon: url('assets/icons/chevron-down.svg')" aria-hidden="true"></span>
+                  </button>
+                  <div class="plugin-add-menu" id="plugin-add-menu" role="menu" aria-labelledby="plugin-add-toggle" hidden>
+                    <button type="button" class="plugin-add-item" role="menuitem" data-action="plugin-add-note" data-kind="third-party">
+                      <span class="plugin-add-icon"><span class="lucide icon-16" style="--icon: url('assets/icons/download.svg')" aria-hidden="true"></span></span>
+                      <span class="plugin-add-copy">
+                        <span class="plugin-add-title">安装第三方插件</span>
+                        <span class="plugin-add-desc">支持 npm 包、Git 仓库和本地目录</span>
+                      </span>
+                    </button>
+                    <button type="button" class="plugin-add-item" role="menuitem" data-action="plugin-add-note" data-kind="agent">
+                      <span class="plugin-add-icon"><span class="lucide icon-16" style="--icon: url('assets/icons/sparkles.svg')" aria-hidden="true"></span></span>
+                      <span class="plugin-add-copy">
+                        <span class="plugin-add-title">让 Agent 创建插件</span>
+                        <span class="plugin-add-desc">进入创造模式，制作属于你的 DSH 插件</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <div class="plugin-tabs" role="tablist" aria-label="插件" hidden>
+              <button type="button" class="plugin-tab" id="tab-installed" role="tab" data-action="plugin-tab" data-tab="installed" aria-selected="true" aria-controls="plugin-installed-view">已安装</button>
+              <button type="button" class="plugin-tab" id="tab-market" role="tab" data-action="plugin-tab" data-tab="market" aria-selected="false" aria-controls="plugin-market-view">插件市场</button>
+            </div>
+
+            <div id="plugin-installed-view">
+              <section class="plugin-section" aria-labelledby="plugin-market-title" hidden>
+                <h4 id="plugin-market-title">插件市场</h4>
+                <p class="caption">选择一个插件市场。一次只能启用一个。</p>
+                <div class="plugin-market-grid" id="plugin-market-options"></div>
+              </section>
+              <section class="plugin-section" aria-label="已安装的插件" hidden>
+                <div class="plugin-list" id="plugin-installed-list"></div>
+              </section>
+              <section class="plugin-section" aria-labelledby="plugin-builtin-title">
+                <h4 id="plugin-builtin-title">内置插件配置</h4>
+                <div class="plugin-list" id="plugin-builtin-list"></div>
+              </section>
+              <section class="plugin-section" aria-labelledby="plugin-owned-title">
+                <h4 id="plugin-owned-title">已安装插件</h4>
+                <div class="plugin-list" id="plugin-installed-owned-list"></div>
+              </section>
+              <section class="plugin-section" aria-labelledby="plugin-experimental-title" hidden>
+                <div class="plugin-section-head">
+                  <h4 id="plugin-experimental-title">实验性插件</h4>
+                  <button type="button" class="plugin-more" data-action="plugin-more-experimental">
+                    <span>更多</span>
+                    <span class="lucide icon-16" style="--icon: url('assets/icons/chevron-right.svg')" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <div class="plugin-list" id="plugin-experimental-list"></div>
+              </section>
+            </div>
+
+            <div id="plugin-market-view" hidden>
+              <label class="search plugin-market-search">
+                <span class="vh">搜索插件</span>
+                <input id="plugin-search" type="search" placeholder="搜索插件名称、说明或包名" autocomplete="off" aria-label="搜索插件">
+              </label>
+              <p class="empty" id="plugin-empty" hidden>没有匹配的插件。换个词，或清空搜索后再看。</p>
+              <div class="plugin-list" id="plugin-market-list"></div>
+            </div>
+
+            <div id="plugin-detail-view" hidden></div>
+          </div>
         </div>
       </div>
     </div>
@@ -394,6 +489,16 @@
         <div class="dialog-actions">
           <button type="button" class="secondary" id="lan-cancel" data-action="lan-cancel">取消</button>
           <button type="button" class="danger" data-action="lan-confirm">开启局域网访问</button>
+        </div>
+      </div>
+    </div>
+    <div class="lan-layer" id="uninstall-layer" hidden>
+      <div class="lan-card" role="alertdialog" aria-modal="true" aria-labelledby="uninstall-title" aria-describedby="uninstall-body">
+        <h3 id="uninstall-title">卸载「禅道管理」？</h3>
+        <p id="uninstall-body">卸载后会从已安装列表中移除，并停止相关功能。此原型只更新页面状态，不会删除本机文件。</p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary" data-action="uninstall-cancel">取消</button>
+          <button type="button" class="danger" data-action="uninstall-confirm">卸载</button>
         </div>
       </div>
     </div>
