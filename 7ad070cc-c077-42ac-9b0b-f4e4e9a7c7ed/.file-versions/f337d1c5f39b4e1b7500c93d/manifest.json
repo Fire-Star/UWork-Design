@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "fileName": "admin.html",
+  "currentVersionId": "e42c85f8-2aea-4fd5-9976-0178354eb96e",
+  "entries": [
+    {
+      "id": "2c386c06-c0b7-4629-bc04-dc2717faaa2d",
+      "fileName": "admin.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1795065438265,
+      "source": "ai",
+      "prompt": "新建一个页面，帮我做这个软件的后端管理端平台设计",
+      "size": 77749,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-2c386c06-c0b7-4629-bc04-dc2717faaa2d.html",
+      "promptSource": "message",
+      "contentDigest": "e6e2cbaafa41c6b165d0f96adca7cfc244cc7dd520d3d751129b3d402b255414"
+    },
+    {
+      "id": "e42c85f8-2aea-4fd5-9976-0178354eb96e",
+      "fileName": "admin.html",
+      "version": 2,
+      "label": "Version 2",
+      "createdAt": 1795068845646,
+      "source": "ai",
+      "prompt": "看下源码，后端管理我理解使用这个源码的样式：D:\\Work\\code\\opensource\\RuoYi-Vue3",
+      "size": 96429,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0002-e42c85f8-2aea-4fd5-9976-0178354eb96e.html",
+      "contentDigest": "ad20dcf0f7603dcea9d6f8fb7441165c5c2c2dc4dda779d7d27427c33eeb6665",
+      "promptSource": "message"
+    }
+  ]
+}

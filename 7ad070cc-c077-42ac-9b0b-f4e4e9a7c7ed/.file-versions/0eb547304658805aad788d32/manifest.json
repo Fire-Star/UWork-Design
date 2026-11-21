@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "fileName": "index.html",
+  "currentVersionId": "87c8da8b-0822-4e53-b26d-eed523943211",
+  "entries": [
+    {
+      "id": "ed49710d-c7b2-490f-8c24-18930a54d067",
+      "fileName": "index.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1795056682008,
+      "source": "ai",
+      "prompt": "D:\\Work\\code\\opensource\\dsh-desktop\n\n参考这个开源项目的代码，原样帮我设计出原型",
+      "size": 84539,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-ed49710d-c7b2-490f-8c24-18930a54d067.html",
+      "promptSource": "message",
+      "contentDigest": "b96320cfa0d8081dcb178d06e67711d171c26ba370a9d7e7bd3c7c3484b4f3a7"
+    },
+    {
+      "id": "91c6db6c-d748-4733-8048-8acd94400417",
+      "fileName": "index.html",
+      "version": 2,
+      "label": "Version 2",
+      "createdAt": 1795060661240,
+      "source": "ai",
+      "prompt": "主要还是布局方面，比如 输入框布局，我觉得就有问题。还有版本号显示",
+      "size": 88687,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0002-91c6db6c-d748-4733-8048-8acd94400417.html",
+      "promptSource": "message",
+      "contentDigest": "b04bbd226960d2ddce85123efcee7a64c2ec86b4a690745245c74aa870455a9a"
+    },
+    {
+      "id": "87c8da8b-0822-4e53-b26d-eed523943211",
+      "fileName": "index.html",
+      "version": 3,
+      "label": "Version 3",
+      "createdAt": 1795064111577,
+      "source": "ai",
+      "prompt": "下拉框也是要修改，但是除了这个我不确定是否还有样式不对的地方，都是需要你修改的。",
+      "size": 103809,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0003-87c8da8b-0822-4e53-b26d-eed523943211.html",
+      "contentDigest": "a6a6f9fcae98735b1d086174e3ca92a18541e7a492d5925def6260aebde26ec3",
+      "promptSource": "message"
+    }
+  ]
+}

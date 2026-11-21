@@ -1,0 +1,2658 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DSH Desktop</title>
+  <style>
+    /* OD-LAYOUT-PRIMITIVES v1 — structure only: display, flex/grid, overflow, wrapping, ratio, geometry.
+       Put this @layer first; product CSS outside the layer wins ordinary layout rules.
+       Native hidden and closed-dialog states take precedence over component display rules. */
+    @layer od-layout {
+      [hidden]:not([hidden="until-found" i]) { display: none !important; }
+      dialog:not([open]) { display: none !important; }
+
+      :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+
+      .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+      .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+      .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+      .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+      .od-fill    { flex: 1 1 0; min-width: 0; }
+      .od-fixed   { flex: none; }
+      .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+
+      .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+      :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+      .od-tile { display: grid; grid-template-rows: auto 1fr; }
+      :where(.od-tile) > :where(*) { display: block; }
+
+      .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+      .od-media-cover { object-fit: cover; }
+
+      .od-icon { display: inline-block; inline-size: var(--od-icon-size, 1em); block-size: var(--od-icon-size, 1em); flex: none; }
+
+      .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+      .od-clamp-2 { -webkit-line-clamp: 2; }
+      .od-clamp-3 { -webkit-line-clamp: 3; }
+      .od-lines-2 { min-height: calc(2 * 1.4em); }
+      .od-nowrap  { white-space: nowrap; }
+      .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+
+      .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+      .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+      .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+                 padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+      .od-rail::-webkit-scrollbar { display: none; }
+      :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+      :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+
+      .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+      .od-touch  { min-width: 44px; min-height: 44px; }
+    }
+    :root [hidden]:where(:not([hidden="until-found" i])) { display: none; }
+    /* /OD-LAYOUT-PRIMITIVES v1 */
+
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-light.woff2") format("woff2");
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-medium.woff2") format("woff2");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #f5f6f8;
+      --sidebar: #f3f4f6;
+      --label: #1c1c1e;
+      --secondary: #3a3a3c;
+      --caption: #8e8e93;
+      --border: rgba(0, 0, 0, 0.1);
+      --border-soft: rgba(0, 0, 0, 0.06);
+      --hover: rgba(0, 0, 0, 0.05);
+      --active: #e6e7ea;
+      --card: #ffffff;
+      --layer: #ffffff;
+      --selector: #ffffff;
+      --frame: #f7f7f8;
+      --frame-text: #1c1c1e;
+      --frame-hover: rgba(0, 0, 0, 0.06);
+      --menu: #ffffff;
+      --menu-text: #1c1c1e;
+      --menu-hover: #f2f2f3;
+      --menu-muted: #8e8e93;
+      --menu-line: rgba(0, 0, 0, 0.08);
+      --chip: #eef0f3;
+      --picker: #ffffff;
+      --picker-selected: rgba(0, 0, 0, 0.06);
+      --composer-ring: rgba(0, 0, 0, 0.16);
+      --toast-bg: #1c1c1e;
+      --toast-text: #ffffff;
+      --send: #3b6fe0;
+      --send-hover: #325fb8;
+      --info: #3b6fe0;
+      --danger: #e5484d;
+      --ok: #1f8f4e;
+      --on-send: #ffffff;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --brand: "Montserrat", var(--font);
+      --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-panel: 28px;
+      --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.08);
+      color-scheme: light;
+    }
+    html[data-theme="dark"] {
+      --bg: #151517;
+      --sidebar: #1b1b1c;
+      --label: #f9fafb;
+      --secondary: #cfd3d6;
+      --caption: #81858c;
+      --border: rgba(255, 255, 255, 0.12);
+      --border-soft: rgba(255, 255, 255, 0.06);
+      --hover: rgba(255, 255, 255, 0.08);
+      --active: #43454a;
+      --card: #2c2c2e;
+      --layer: #232324;
+      --selector: #353638;
+      --frame: #232323;
+      --frame-text: #f9fafb;
+      --frame-hover: rgba(255, 255, 255, 0.08);
+      --menu: #2c2c2e;
+      --menu-text: #f9fafb;
+      --menu-hover: rgba(255, 255, 255, 0.08);
+      --menu-muted: #81858c;
+      --menu-line: rgba(255, 255, 255, 0.1);
+      --chip: rgba(255, 255, 255, 0.08);
+      --picker: #353638;
+      --picker-selected: rgba(255, 255, 255, 0.12);
+      --composer-ring: rgba(255, 255, 255, 0.22);
+      --toast-bg: #43454a;
+      --toast-text: #f9fafb;
+      --send: #4176e6;
+      --send-hover: #4868b2;
+      --info: #7aaaff;
+      --danger: #f25a5a;
+      --ok: #4ed17e;
+      --on-send: #ffffff;
+      --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.28);
+      color-scheme: dark;
+    }
+    .brand-mark, .hero-mark { filter: invert(1); }
+    html[data-theme="dark"] .brand-mark,
+    html[data-theme="dark"] .hero-mark { filter: none; }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--label);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:disabled, [aria-disabled="true"] { cursor: default; }
+    :focus { outline: none; }
+    :focus-visible {
+      outline: 2px solid var(--info);
+      outline-offset: 2px;
+    }
+    .icon-16 { --od-icon-size: 16px; }
+    .icon-18 { --od-icon-size: 18px; }
+    .lucide {
+      display: inline-block;
+      width: var(--od-icon-size, 16px);
+      height: var(--od-icon-size, 16px);
+      flex: none;
+      background-color: currentColor;
+      -webkit-mask: var(--icon) center / contain no-repeat;
+      mask: var(--icon) center / contain no-repeat;
+      -webkit-mask-mode: alpha;
+      mask-mode: alpha;
+    }
+    .vh {
+      display: block;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .skip {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      z-index: 80;
+      transform: translateY(-140%);
+      background: var(--label);
+      color: #111111;
+      border: 0;
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+    }
+    .skip:focus { transform: none; }
+
+    .shell {
+      display: grid;
+      grid-template-rows: 36px minmax(0, 1fr);
+      height: 100dvh;
+      min-height: 0;
+      background: var(--bg);
+    }
+    .framebar {
+      position: relative;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-width: 0;
+      padding-left: 6px;
+      background: var(--frame);
+      color: var(--frame-text);
+      border-bottom: 1px solid var(--border-soft);
+      user-select: none;
+    }
+    .menu-bar {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      min-width: 0;
+    }
+    .frame-fold,
+    .menu-item,
+    .win-btn {
+      border: 0;
+      background: transparent;
+      color: var(--frame-text);
+    }
+    .frame-fold {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 28px;
+      border-radius: 6px;
+      flex: none;
+    }
+    .menu-item {
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.2;
+      padding: 4px 8px;
+      white-space: nowrap;
+    }
+    .menu-item[aria-current="page"],
+    .menu-item[aria-expanded="true"],
+    .frame-fold:hover,
+    .menu-item:hover,
+    .win-btn:hover {
+      background: var(--frame-hover);
+    }
+    .app-menu { position: relative; }
+    .app-menu-pop {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      z-index: 80;
+      display: grid;
+      width: 280px;
+      padding: 6px;
+      border-radius: 12px;
+      background: var(--menu);
+      color: var(--menu-text);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--menu-line);
+    }
+    .app-menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--menu-text);
+      font-size: 13px;
+      line-height: 1.3;
+      text-align: left;
+    }
+    .app-menu-item:hover { background: var(--menu-hover); }
+    .app-menu-kbd,
+    .app-menu-item .chevron { color: var(--menu-muted); flex: none; }
+    .app-menu-rule {
+      height: 1px;
+      margin: 6px 8px;
+      background: var(--menu-line);
+    }
+    .window-controls { display: flex; align-items: stretch; align-self: stretch; }
+    .win-btn {
+      width: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .win-btn.is-close:hover { background: #e81123; color: #ffffff; }
+    .app {
+      display: grid;
+      grid-template-columns: 256px minmax(0, 1fr);
+      min-height: 0;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      background: var(--sidebar);
+      color: var(--label);
+      border-right: 1px solid var(--border-soft);
+      padding: 8px;
+      gap: 8px;
+    }
+    .brand-btn, .new-session, .side-row, .nav-row, .icon-btn, .text-btn, .send, .choice, .switch {
+      border: 0;
+      background: transparent;
+    }
+    .brand-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      text-align: left;
+    }
+    .brand-mark { width: 22px; height: auto; display: block; }
+    .brand-copy { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .brand-name {
+      font-family: var(--brand);
+      font-weight: 500;
+      font-size: 16px;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+    .brand-harness {
+      font-family: var(--brand);
+      font-weight: 500;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      line-height: 1.2;
+      color: var(--caption);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+    .new-session {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 36px;
+      margin: 0 4px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--selector);
+      color: var(--label);
+      border: 1px solid var(--border);
+    }
+    .kbd {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--caption);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0 4px;
+    }
+    .side-scroll { flex: 1 1 auto; }
+    .ws { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+    .ws-label {
+      margin: 0;
+      padding: 4px 12px;
+      color: var(--caption);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .side-row, .nav-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--secondary);
+      text-align: left;
+    }
+    .side-row.is-workspace { color: var(--label); font-weight: 600; }
+    .side-time {
+      flex: none;
+      color: var(--caption);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+    .side-row[aria-current="true"], .nav-row[aria-current="page"] {
+      background: var(--active);
+      color: var(--label);
+    }
+    .side-foot {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-soft);
+    }
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      background: var(--bg);
+    }
+    .main.has-inspector { grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); }
+    .user-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 6px;
+      border-radius: 14px;
+      background: var(--card);
+      border: 1px solid var(--border-soft);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 4px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--label);
+      text-align: left;
+    }
+    .user-avatar {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #1f8f4e;
+      color: #ffffff;
+    }
+    .user-avatar svg { width: 16px; height: 16px; }
+    .user-name {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .user-side { display: flex; align-items: center; flex: none; }
+    .main.is-home .topbar,
+    .main.is-plain .topbar { display: none; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 56px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .topbar-title { display: grid; gap: 0; }
+    .kicker, .hero-badge, .caption, .choice-body, .field-help, .status {
+      margin: 0;
+      color: var(--caption);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .kicker { font-size: 12px; }
+    #view-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .text-btn, .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--secondary);
+      background: transparent;
+    }
+    .icon-btn { min-width: 36px; padding: 6px; }
+    .icon-btn[aria-pressed="true"] { background: var(--active); color: var(--label); }
+    .topbar-toggle { display: none; }
+    .stage { min-width: 0; min-height: 0; display: grid; }
+    #view-conversation, #view-plugins, #view-messages {
+      min-width: 0;
+      min-height: 0;
+    }
+    #view-messages { height: 100%; }
+    .messages {
+      height: 100%;
+      padding: 8px 32px 40px;
+    }
+    .messages-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 56px;
+    }
+    .messages-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
+    .notice-day {
+      margin: 18px 0 4px;
+      color: var(--caption);
+      font-size: 13px;
+    }
+    .notice {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      padding: 14px 0;
+    }
+    .notice-copy { display: grid; gap: 4px; min-width: 0; }
+    .notice-title { font-size: 15px; font-weight: 600; line-height: 1.4; }
+    .notice-body { margin: 0; color: var(--secondary); font-size: 14px; line-height: 1.5; }
+    .notice .secondary { align-self: center; }
+    #view-conversation { display: grid; grid-template-rows: minmax(0, 1fr); }
+    #view-conversation.is-chat { grid-template-rows: minmax(0, 1fr) auto; }
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      min-height: 0;
+      padding: 32px 16px 40px;
+    }
+    .hero-copy { display: flex; justify-content: center; width: min(760px, 100%); }
+    .hero-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+    }
+    .hero-mark { width: 28px; height: 28px; display: block; flex: none; }
+    .hero-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--secondary);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .home-suggest {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      width: min(760px, 100%);
+    }
+    .home-suggest button {
+      min-height: 32px;
+      padding: 4px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--secondary);
+      font-size: 13px;
+    }
+    .transcript { padding: 8px 16px 0; }
+    .thread {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px 0 12px;
+    }
+    .bubble {
+      align-self: flex-end;
+      max-width: min(560px, 88%);
+      margin: 0;
+      padding: 10px 14px;
+      border-radius: var(--radius-lg);
+      background: var(--card);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .assistant {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .disclosure {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-soft);
+      background: transparent;
+      text-align: left;
+      color: var(--secondary);
+    }
+    .disclosure-body {
+      margin: 0;
+      padding: 0 12px 8px 34px;
+      color: var(--secondary);
+    }
+    .disclosure-body p { margin: 0 0 4px; }
+    .msg-actions { display: flex; gap: 4px; }
+    .note { margin: 0; color: var(--caption); }
+    .dock {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+    #composer-slot-hero,
+    #composer-slot-dock {
+      width: min(760px, 100%);
+    }
+    .stats {
+      margin: 2px 8px 0;
+      color: var(--secondary);
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: center;
+    }
+    .composer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
+    .composer-meta {
+      display: none;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      min-height: 28px;
+      padding: 0 6px;
+    }
+    .composer.is-hero .composer-meta { display: flex; }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      color: var(--secondary);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .composer-card {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 12px 10px;
+      border-radius: var(--radius-panel);
+      background: var(--card);
+      box-shadow: var(--shadow-soft), 0 0 0 1px var(--border);
+    }
+    .composer-card:focus-within { box-shadow: var(--shadow-soft), 0 0 0 1px var(--composer-ring); }
+    .composer-input {
+      display: block;
+      width: 100%;
+      min-height: 72px;
+      max-height: 240px;
+      margin: 0;
+      padding: 2px 8px 8px;
+      border: 0;
+      resize: none;
+      background: transparent;
+      line-height: 1.5;
+    }
+    .composer-input::placeholder { color: var(--caption); }
+    .composer-input:focus-visible { outline: none; }
+    .composer:not(.is-hero) .composer-input { min-height: 40px; }
+    .composer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 2px;
+    }
+    .composer-tools, .composer-end { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .composer-end { margin-left: auto; flex: none; }
+    .access-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--secondary); }
+    .add, .send {
+      display: grid;
+      place-items: center;
+      flex: none;
+      border: 0;
+      border-radius: 999px;
+    }
+    .add {
+      width: 28px;
+      height: 28px;
+      background: transparent;
+      color: var(--secondary);
+    }
+    .send {
+      width: 34px;
+      height: 34px;
+      background: var(--send);
+      color: var(--on-send);
+    }
+    .send.is-idle { opacity: 0.4; }
+    .picker { position: relative; display: inline-flex; max-width: 100%; min-width: 0; }
+    .picker.is-field { display: flex; width: 100%; }
+    .picker-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 240px;
+      min-height: 28px;
+      padding: 2px 4px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--secondary);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .picker-trigger[aria-expanded="true"] { background: var(--hover); color: var(--label); }
+    .picker.is-field .picker-trigger {
+      width: 100%;
+      max-width: none;
+      min-height: 40px;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--layer);
+      color: var(--label);
+      font-size: 16px;
+      font-weight: 400;
+    }
+    .picker-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .picker-chevron { --od-icon-size: 12px; color: var(--caption); }
+    .picker-menu {
+      position: fixed;
+      z-index: 80;
+      display: grid;
+      gap: 2px;
+      min-width: 180px;
+      max-width: min(280px, calc(100vw - 16px));
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--picker);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    }
+    .picker-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--label);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.4;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .picker-option[aria-selected="true"] { background: var(--picker-selected); }
+    .picker-check { width: 14px; height: 14px; flex: none; visibility: hidden; }
+    .picker-option[aria-selected="true"] .picker-check { visibility: visible; }
+    .plugins { padding: 16px; }
+    .plugin-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .tabs { display: flex; gap: 4px; }
+    .tab {
+      min-height: 36px;
+      padding: 6px 12px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--secondary);
+    }
+    .tab[aria-selected="true"] {
+      background: var(--active);
+      color: var(--label);
+    }
+    .search {
+      display: grid;
+      gap: 4px;
+      min-width: min(280px, 100%);
+    }
+    .search input, .text-input, .select {
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--layer);
+      color: var(--label);
+    }
+    .plugin-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .plugin-card {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 12px;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .plugin-open {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      color: var(--label);
+    }
+    .plugin-title { font-weight: 600; }
+    .plugin-desc { color: var(--secondary); }
+    .plugin-meta { color: var(--caption); font-family: var(--mono); font-size: 12px; }
+    .chip {
+      display: block;
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--secondary);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .plugin-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .primary, .secondary, .danger {
+      min-height: 36px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+    }
+    .primary { background: var(--send); color: var(--on-send); border-color: var(--send); }
+    .secondary { background: transparent; color: var(--label); border-color: var(--border); }
+    .danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+    .detail-back { margin-bottom: 12px; }
+    .detail h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.35; }
+    .inspector {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      background: var(--sidebar);
+      border-left: 1px solid var(--border-soft);
+    }
+    .inspector-head, .dialog-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .inspector-head h2, .dialog-head h2 { margin: 0; font-size: 18px; }
+    .inspector-body, .dialog-body { padding: 16px; }
+    .log-table { width: 100%; border-collapse: collapse; }
+    .log-table th, .log-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border-soft);
+      text-align: left;
+      vertical-align: top;
+    }
+    .log-table th { color: var(--caption); font-weight: 600; font-size: 13px; }
+    .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+    .timeline li { display: grid; gap: 2px; }
+    dialog[open] {
+      display: flex;
+      flex-direction: column;
+      width: min(880px, calc(100vw - 32px));
+      max-height: min(860px, calc(100dvh - 32px));
+      padding: 0;
+      border: 0;
+      border-radius: var(--radius-lg);
+      background: var(--layer);
+      color: var(--label);
+      box-shadow: 0 0 0 1px var(--border), var(--shadow-soft);
+    }
+    #install-dialog[open] { width: min(440px, calc(100vw - 32px)); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+    .dialog-body { display: grid; gap: 16px; }
+    .group { display: grid; gap: 8px; }
+    .group h3 { margin: 0; font-size: 16px; }
+    .choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 0 0 1px var(--border-soft);
+      text-align: left;
+      color: var(--label);
+    }
+    .choice.is-selected { box-shadow: 0 0 0 1px var(--info); }
+    .choice input { margin-top: 4px; accent-color: var(--send); }
+    .choice-title { font-weight: 600; }
+    .choice-status { color: var(--info); font-size: 13px; }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 44px;
+    }
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex: none;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    .switch-track {
+      display: block;
+      flex: none;
+      width: 40px;
+      height: 22px;
+      border-radius: 999px;
+      background: #e0e0e0;
+      position: relative;
+    }
+    .switch-thumb {
+      display: block;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      transition: transform 160ms ease-out;
+    }
+    .switch[aria-checked="true"] .switch-track { background: #1c1c1e; }
+    .switch[aria-checked="true"] .switch-thumb { transform: translateX(16px); }
+    .switch:disabled { opacity: 0.4; }
+    .field-error { margin: 0; color: var(--danger); }
+    .url {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+    .lan-layer {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.48);
+    }
+    .lan-card {
+      width: min(440px, 100%);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border);
+      display: grid;
+      gap: 12px;
+    }
+    .lan-card h3 { margin: 0; font-size: 18px; }
+    .lan-card p { margin: 0; color: var(--secondary); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      border: 0;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    #settings { position: relative; }
+    #settings[open] {
+      width: min(1040px, calc(100vw - 40px));
+      height: min(800px, calc(100dvh - 40px));
+      max-height: none;
+      background: var(--bg);
+      overflow: hidden;
+    }
+    .settings-shell {
+      display: grid;
+      grid-template-columns: 216px minmax(0, 1fr);
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+    }
+    .settings-nav {
+      padding: 16px 10px 20px 12px;
+    }
+    .settings-group {
+      margin: 14px 0 4px;
+      padding: 0 10px;
+      color: var(--caption);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .settings-group:first-child { margin-top: 4px; }
+    .set-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 36px;
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--label);
+      font-size: 14px;
+      text-align: left;
+    }
+    .set-nav[aria-selected="true"] { background: var(--active); font-weight: 600; }
+    .settings-main { position: relative; min-width: 0; min-height: 0; }
+    .settings-close { position: absolute; top: 4px; right: 6px; z-index: 2; }
+    .settings-body { height: 100%; padding: 44px 20px 28px 12px; }
+    .settings-panel { display: grid; gap: 12px; align-content: start; }
+    .set-card {
+      display: grid;
+      gap: 12px;
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .set-card h3 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.4; }
+    .set-line, .set-split {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .set-split.is-top { align-items: flex-start; }
+    .set-copy { display: grid; gap: 4px; min-width: 0; }
+    .set-label { font-size: 15px; font-weight: 600; }
+    .ghost-field, .set-edit {
+      min-height: 32px;
+      padding: 4px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--caption);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .ghost-field { max-width: 220px; text-align: left; }
+    .ghost-field.is-filled, .set-edit { color: var(--label); font-size: 14px; }
+    .set-edit { flex: none; }
+    .ghost-editor { flex: none; width: min(220px, 46%); }
+    .ghost-editor .text-input, .set-editor textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--label);
+      font: inherit;
+    }
+    .ghost-editor .text-input { min-height: 32px; padding: 4px 10px; font-size: 14px; }
+    .set-editor { display: grid; gap: 8px; }
+    .set-editor textarea { min-height: 96px; padding: 10px 12px; resize: vertical; }
+    .set-preview {
+      min-height: 88px;
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--caption);
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .set-preview.is-filled { color: var(--label); }
+    .settings-shell .picker.is-field { width: auto; flex: none; }
+    .settings-shell .picker.is-field .picker-trigger {
+      width: auto;
+      min-width: 108px;
+      min-height: 34px;
+      font-size: 14px;
+      border-radius: 8px;
+    }
+    .kbd-list { display: grid; gap: 4px; }
+    @media (max-width: 767px) {
+      #settings[open] {
+        width: calc(100vw - 16px);
+        height: calc(100dvh - 16px);
+      }
+      .settings-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+      .settings-nav {
+        display: flex;
+        gap: 4px;
+        padding: 44px 12px 8px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .settings-group { display: none; }
+      .set-nav { width: auto; flex: none; }
+      .settings-body { padding: 16px; }
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 70;
+      margin: 0;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--toast-bg);
+      color: var(--toast-text);
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    .empty { margin: 24px 0; color: var(--secondary); }
+
+    @media (hover: hover) {
+      .brand-btn:hover, .side-row:hover, .nav-row:hover, .text-btn:hover, .icon-btn:hover, .tab:hover, .disclosure:hover, .picker-trigger:hover, .set-nav:hover, .ghost-field:hover, .set-edit:hover {
+        background: var(--hover);
+      }
+      .picker-option:hover { background: var(--hover); }
+      .picker-option[aria-selected="true"]:hover { background: var(--active); }
+      .new-session:hover, .add:hover, .user-chip:hover, .home-suggest button:hover { background: var(--hover); }
+      .send:hover:not(.is-idle) { background: var(--send-hover); }
+      .primary:hover { background: var(--send-hover); }
+      .plugin-card:hover { box-shadow: 0 0 0 1px var(--border); }
+    }
+    @media (max-width: 1199px) {
+      .plugin-grid { grid-template-columns: 1fr; }
+    }
+    @media (min-width: 768px) {
+      .plugin-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 1200px) {
+      .plugin-grid { grid-template-columns: 1fr 1fr 1fr; }
+    }
+    @media (max-width: 1023px) {
+      .app, .main.has-inspector { grid-template-columns: minmax(0, 1fr); }
+      .sidebar {
+        position: fixed;
+        top: 36px;
+        bottom: 0;
+        left: 0;
+        width: min(288px, calc(100vw - 48px));
+        z-index: 30;
+        transform: translateX(-105%);
+        transition: transform 200ms ease-out;
+      }
+      .app.is-drawer .sidebar { transform: none; }
+      .topbar-toggle { display: none; }
+      .kbd { display: none; }
+      .inspector {
+        position: fixed;
+        top: 36px;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 40;
+        grid-column: auto;
+        grid-row: auto;
+        border-left: 0;
+      }
+      .scrim { top: 36px; }
+    }
+    @media (min-width: 1024px) {
+      .app.is-rail { grid-template-columns: minmax(0, 1fr); }
+      .app.is-rail .sidebar { display: none; }
+    }
+    @media (max-width: 767px) {
+      .top-actions .text-btn span.label { display: none; }
+      .composer-row { flex-wrap: wrap; }
+      .composer-end { flex: none; }
+      .picker-trigger { max-width: min(220px, 100%); }
+      .picker.is-field .picker-trigger { max-width: none; }
+      .hero { padding: 24px 16px; }
+      .hero-title { font-size: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button type="button" class="skip" data-action="skip">跳到主内容</button>
+  <div class="shell">
+    <header class="framebar">
+      <nav class="menu-bar" aria-label="主菜单">
+        <button type="button" class="frame-fold" id="frame-toggle" data-action="toggle-sidebar" aria-label="收起侧边栏">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 4v16" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>
+        </button>
+        <div class="app-menu">
+          <button type="button" class="menu-item" id="menu-app" data-action="toggle-app-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="app-menu">应用</button>
+          <div class="app-menu-pop" id="app-menu" role="menu" aria-labelledby="menu-app" hidden>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">打开 DSH NEXT</button>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="reload-ui">重新加载界面</button>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">退出并重启</button>
+            <div class="app-menu-rule" role="separator"></div>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">打开 DSH 终端</button>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">导出诊断信息...</button>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">进入安全模式...</button>
+            <div class="app-menu-rule" role="separator"></div>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">
+              <span>Profile: desktop</span>
+              <svg class="od-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="app-menu-rule" role="separator"></div>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="open-settings">
+              <span>设置...</span>
+              <span class="app-menu-kbd">Ctrl+逗号</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">发现新版本 2.0.24-next</button>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">恢复助手...</button>
+            <div class="app-menu-rule" role="separator"></div>
+            <button type="button" class="app-menu-item" role="menuitem" data-action="app-note">
+              <span>退出</span>
+              <span class="app-menu-kbd">Ctrl+Q</span>
+            </button>
+          </div>
+        </div>
+        <button type="button" class="menu-item">编辑</button>
+        <button type="button" class="menu-item" id="menu-plugins" data-action="open-plugins">插件市场</button>
+        <button type="button" class="menu-item">帮助</button>
+        <button type="button" class="menu-item">关于</button>
+      </nav>
+      <div class="window-controls">
+        <button type="button" class="win-btn" data-action="window-control" aria-label="最小化">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="win-btn" data-action="window-control" aria-label="最大化">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.25" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button type="button" class="win-btn is-close" data-action="window-control" aria-label="关闭">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </header>
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="od-row">
+        <button type="button" class="brand-btn od-fill" data-action="new-session" aria-label="deepseek HARNESS，新建会话">
+          <img class="brand-mark" src="assets/deepseek-mark.svg" width="22" height="22" alt="">
+          <span class="brand-copy rail-hide">
+            <span class="brand-name">deepseek</span>
+            <span class="brand-harness">HARNESS</span>
+          </span>
+        </button>
+      </div>
+      <button type="button" class="new-session" data-action="new-session">
+        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+        <span class="rail-hide">新会话</span>
+        <kbd class="kbd rail-hide" aria-hidden="true">Ctrl N</kbd>
+      </button>
+      <div class="side-scroll od-scroll" id="session-mount"></div>
+      <div class="user-bar">
+        <button type="button" class="user-chip" data-action="open-settings" aria-label="用户 Nato，打开设置">
+          <span class="user-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2" fill="currentColor"/><path d="M5.5 18.5c1.4-2.4 3.6-3.5 6.5-3.5s5.1 1.1 6.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </span>
+          <span class="user-name">Nato</span>
+        </button>
+        <div class="user-side">
+          <button type="button" class="icon-btn" data-action="open-messages" aria-label="消息中心">
+            <span class="lucide icon-16" style="--icon: url('assets/icons/message-square.svg')" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+    </aside>
+    <button type="button" class="scrim" id="scrim" data-action="close-drawer" hidden aria-label="关闭侧边栏"></button>
+    <div class="main" id="main">
+      <header class="topbar">
+        <div class="topbar-title od-fill">
+          <p class="kicker" id="workspace-kicker">dsh</p>
+          <h1 id="view-title" tabindex="-1">新会话</h1>
+        </div>
+        <div class="top-actions" id="session-tools">
+          <button type="button" class="text-btn" data-action="open-inspector" data-inspector="trajectory">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="6" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 6h8a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+            <span class="label">轨迹</span>
+          </button>
+          <button type="button" class="text-btn" data-action="open-inspector" data-inspector="log">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M10 8h4M10 12h4M10 16h3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+            <span class="label">Session log</span>
+          </button>
+        </div>
+      </header>
+      <div class="stage">
+        <div data-include="pages/conversation.html"></div>
+        <div data-include="pages/plugins.html"></div>
+        <div data-include="pages/messages.html"></div>
+      </div>
+      <div data-include="pages/inspector.html"></div>
+    </div>
+  </div>
+  </div>
+
+  <div data-include="pages/composer.html"></div>
+
+  <div data-include="pages/settings.html"></div>
+
+  <div data-include="pages/install.html"></div>
+
+  <p class="toast" id="toast" hidden role="status"></p>
+  <p class="vh" id="live" aria-live="polite"></p>
+
+  <script type="module">
+    const includes = [...document.querySelectorAll('[data-include]')];
+    await Promise.all(includes.map(async (node) => {
+      const url = node.getAttribute('data-include');
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('无法载入页面 ' + url);
+      node.outerHTML = await response.text();
+    }));
+
+    const ICONS = {
+      copy: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M4 16V6a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>',
+      up: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11v9H5v-9h3zm0 0 4.2-6.2A2 2 0 0 1 14 4.2V8h5.2a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 18 19h-4.2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>',
+      down: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13V4h3v9h-3zm0 0-4.2 6.2A2 2 0 0 1 10 19.8V16H4.8a2 2 0 0 1-2-2.3l1.2-7A2 2 0 0 1 6 5h4.2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>',
+      chevron: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      send: '<svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      stop: '<svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>'
+    };
+    const CHECK_ICON = '<svg class="picker-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    const state = {
+      rail: false,
+      drawer: false,
+      view: 'conversation',
+      pluginTab: 'discover',
+      query: '',
+      pluginDetail: null,
+      pendingPlugin: null,
+      inspector: null,
+      contextOpen: false,
+      activeWorkspace: 'dsh',
+      activeSession: null,
+      access: 'full',
+      model: 'DeepSeek-V4-Flash High',
+      sending: false,
+      settingsTab: 'persona',
+      callName: '',
+      assistantName: '',
+      replyStyle: 'default',
+      homeSuggest: true,
+      instruction: '',
+      personaText: '',
+      editing: '',
+      theme: 'light',
+      mode: 'compatibility',
+      port: 43120,
+      openBrowser: true,
+      lan: false,
+      notify: { enabled: true, turnDone: true, turnFail: true, jobDone: true, jobFail: true },
+      feedback: {},
+      opener: null,
+      timers: []
+    };
+
+    const plugins = [
+      {
+        id: 'market-bundle',
+        title: '自定义插件索引',
+        packageName: '@deepseek-ai/dsh-experimental-plugin-market-bundle',
+        description: '在插件页添加“发现”标签页，从你添加的插件索引中浏览和安装插件。',
+        author: 'DeepSeek',
+        version: '0.2.2-rc.5',
+        source: '随 DSH 提供',
+        installed: true,
+        bundled: true,
+        enabled: true,
+        tags: ['插件', '索引']
+      },
+      {
+        id: 'community',
+        title: 'dsh-community-market',
+        packageName: 'dsh-community-market',
+        description: 'DSH Desktop 内置的开放插件市场，支持添加和选择自定义插件数据源。',
+        author: 'DSH Desktop',
+        version: '2.0.18',
+        source: '桌面端',
+        installed: true,
+        bundled: true,
+        enabled: true,
+        tags: ['市场']
+      },
+      {
+        id: 'oar',
+        title: 'OAR 子智能体',
+        packageName: '@deepseek-ai/dsh-experimental-subagent-oar',
+        description: '通过 OAR 向已安装的编程智能体委派任务，并提供 Codex 和 Claude Code 配置。',
+        author: 'DeepSeek',
+        version: '0.2.2-rc.5',
+        source: '实验性',
+        installed: false,
+        bundled: false,
+        enabled: false,
+        tags: ['实验性']
+      },
+      {
+        id: 'aa',
+        title: 'Agents-Anywhere',
+        packageName: 'agents-anywhere',
+        description: '通过 Agents-Anywhere，在手机或浏览器中访问这台电脑上的 DSH。',
+        author: 'DSH Desktop',
+        version: '2.0.18',
+        source: '桌面端',
+        installed: false,
+        bundled: false,
+        enabled: false,
+        tags: ['远程', 'Beta']
+      }
+    ];
+
+    let seq = 10;
+    const uid = () => { seq += 1; return 'm' + seq; };
+
+    state.workspaces = [
+      {
+        id: 'dsh',
+        name: 'dsh',
+        sessions: [
+          {
+            id: 'hi',
+            title: '你好',
+            messages: [
+              { id: 'u1', role: 'user', text: '你好' },
+              {
+                id: 'c1',
+                role: 'context',
+                open: false,
+                items: [
+                  { name: 'AGENTS.md', state: '已载入' },
+                  { name: 'README.zh.md', state: '已载入' }
+                ],
+                note: '示例记录。这个原型没有读取这些文件。'
+              },
+              { id: 't1', role: 'think', open: false, text: '用户在打招呼。这一轮不需要工具，直接回应即可。' },
+              { id: 'a1', role: 'assistant', text: '你好。我是这个桌面原型里的本地回复，没有连接 DeepSeek。当前工作区是 dsh，模型是 DeepSeek-V4-Flash High。可以继续输入，或打开轨迹和 Session log 看这一轮的记录。' }
+            ]
+          },
+          {
+            id: 'readme',
+            title: '看 README',
+            messages: [
+              { id: 'u2', role: 'user', text: '这个仓库的桌面端入口在哪？' },
+              { id: 'a2', role: 'assistant', text: '桌面壳在 dsh-plugin-desktop，Next 变体在 dsh-desktop-next。这是页面里的示例回复，没有打开仓库。' }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'aa',
+        name: 'Agents-Anywhere',
+        sessions: [
+          {
+            id: 'phone',
+            title: '手机连接',
+            messages: [
+              { id: 'u3', role: 'user', text: '怎么在手机上打开这台电脑上的 DSH？' },
+              { id: 'a3', role: 'assistant', text: '真实的 DSH Desktop 里，开启手机连接后，侧栏会出现入口。这个原型只保留说明，不会生成访问链接。' }
+            ]
+          }
+        ]
+      },
+      { id: 'next', name: 'dsh-desktop-next', sessions: [] }
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const app = $('app');
+    const composer = $('composer');
+    const composerInput = $('composer-input');
+    const sendBtn = $('send-btn');
+    const transcript = $('transcript');
+    const hero = $('hero');
+    const dock = $('dock');
+    const viewConversation = $('view-conversation');
+    const viewPlugins = $('view-plugins');
+    const viewMessages = $('view-messages');
+    const narrowQuery = window.matchMedia('(max-width: 1023px)');
+
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    function toast(text) {
+      const node = $('toast');
+      node.textContent = text;
+      node.hidden = false;
+      window.clearTimeout(toast._t);
+      toast._t = window.setTimeout(() => { node.hidden = true; }, 2200);
+    }
+
+    function say(text) { $('live').textContent = text; }
+
+    function currentWorkspace() {
+      return state.workspaces.find((ws) => ws.id === state.activeWorkspace) || state.workspaces[0];
+    }
+
+    function currentSession() {
+      for (const ws of state.workspaces) {
+        const session = ws.sessions.find((item) => item.id === state.activeSession);
+        if (session) return { ws, session };
+      }
+      return { ws: currentWorkspace(), session: null };
+    }
+
+    function accessLabel() { return state.access === 'full' ? 'Full access' : '只读'; }
+
+    function deriveUsage(session) {
+      if (!session) return null;
+      const users = session.messages.filter((m) => m.role === 'user');
+      const replies = session.messages.filter((m) => m.role === 'assistant');
+      const input = users.reduce((sum, m) => sum + m.text.length, 0);
+      const output = replies.reduce((sum, m) => sum + m.text.length, 0);
+      if (input + output === 0) return null;
+      return { input, output, turns: users.length, steps: replies.length };
+    }
+
+    function later(fn, ms) {
+      const id = window.setTimeout(fn, ms);
+      state.timers.push(id);
+      return id;
+    }
+
+    function clearTimers() {
+      state.timers.forEach((id) => window.clearTimeout(id));
+      state.timers = [];
+    }
+
+    function setSwitch(button, on) {
+      if (!button) return;
+      button.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+
+    function placeComposer(inHero) {
+      const slot = $(inHero ? 'composer-slot-hero' : 'composer-slot-dock');
+      if (composer.parentElement !== slot) slot.appendChild(composer);
+    }
+
+    function renderSidebar() {
+      const mount = $('session-mount');
+      const prev = document.activeElement;
+      const restoreSession = prev && prev.dataset ? prev.dataset.session : '';
+      const restoreWs = prev && prev.dataset && prev.dataset.action === 'open-workspace' ? prev.dataset.workspace : '';
+      mount.innerHTML = state.workspaces.map((ws) => {
+        const rows = ws.sessions.length
+          ? ws.sessions.map((session) => {
+            const current = session.id === state.activeSession ? 'true' : 'false';
+            return '<button type="button" class="side-row" data-action="open-session" data-workspace="' + esc(ws.id) + '" data-session="' + esc(session.id) + '" aria-current="' + current + '"><span class="od-truncate od-fill">' + esc(session.title) + '</span><span class="side-time">刚刚</span></button>';
+          }).join('')
+          : '<p class="ws-label">还没有会话</p>';
+        const currentWs = ws.id === state.activeWorkspace ? ' is-workspace' : '';
+        return '<section class="ws" aria-label="' + esc(ws.name) + '"><button type="button" class="side-row' + currentWs + '" data-action="open-workspace" data-workspace="' + esc(ws.id) + '"><span class="od-truncate">' + esc(ws.name) + '</span></button>' + rows + '</section>';
+      }).join('');
+      if (restoreSession) {
+        const btn = mount.querySelector('[data-session="' + CSS.escape(restoreSession) + '"]');
+        if (btn) btn.focus();
+      } else if (restoreWs) {
+        const btn = mount.querySelector('[data-action="open-workspace"][data-workspace="' + CSS.escape(restoreWs) + '"]');
+        if (btn) btn.focus();
+      }
+    }
+
+    function messageHtml(message) {
+      if (message.role === 'user') {
+        return '<p class="bubble">' + esc(message.text) + '</p>';
+      }
+      if (message.role === 'context') {
+        const summary = message.items.map((item) => item.state + ' ' + item.name).join('、');
+        const body = message.open
+          ? '<div class="disclosure-body">' + message.items.map((item) => '<p>' + esc(item.state) + ' ' + esc(item.name) + '</p>').join('') + (message.note ? '<p class="caption">' + esc(message.note) + '</p>' : '') + '</div>'
+          : '';
+        return '<div><button type="button" class="disclosure" data-action="toggle-context" data-id="' + esc(message.id) + '" aria-expanded="' + (message.open ? 'true' : 'false') + '">' + ICONS.chevron + '<span class="od-field od-fill"><span>上下文注入</span><span class="caption od-clamp-2">' + esc(summary) + '</span></span></button>' + body + '</div>';
+      }
+      if (message.role === 'think') {
+        const body = message.open ? '<div class="disclosure-body"><p>' + esc(message.text) + '</p></div>' : '';
+        return '<div><button type="button" class="disclosure" data-action="toggle-think" data-id="' + esc(message.id) + '" aria-expanded="' + (message.open ? 'true' : 'false') + '">' + ICONS.chevron + '<span class="od-field od-fill"><span>思考</span><span class="caption">已思考</span></span></button>' + body + '</div>';
+      }
+      if (message.role === 'assistant') {
+        const vote = state.feedback[message.id] || '';
+        return '<div class="od-stack"><p class="assistant">' + esc(message.text) + '</p><div class="msg-actions"><button type="button" class="icon-btn" data-action="copy" data-id="' + esc(message.id) + '" aria-label="复制">' + ICONS.copy + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="up" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'up' ? 'true' : 'false') + '" aria-label="有帮助">' + ICONS.up + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="down" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'down' ? 'true' : 'false') + '" aria-label="没帮助">' + ICONS.down + '</button></div></div>';
+      }
+      return '<p class="note">' + esc(message.text) + '</p>';
+    }
+
+    function renderTranscript(opts) {
+      const session = currentSession().session;
+      const prev = document.activeElement;
+      const restore = prev && prev.dataset && prev.closest('#transcript')
+        ? { action: prev.dataset.action, id: prev.dataset.id, vote: prev.dataset.vote || '' }
+        : null;
+      const top = transcript.scrollTop;
+      transcript.innerHTML = session
+        ? '<div class="thread">' + session.messages.map(messageHtml).join('') + '</div>'
+        : '';
+      if (opts && opts.scroll === 'end') transcript.scrollTop = transcript.scrollHeight;
+      else transcript.scrollTop = top;
+      if (restore && restore.id) {
+        const voteSel = restore.vote ? '[data-vote="' + CSS.escape(restore.vote) + '"]' : '';
+        const btn = transcript.querySelector('[data-action="' + CSS.escape(restore.action) + '"][data-id="' + CSS.escape(restore.id) + '"]' + voteSel);
+        if (btn) btn.focus();
+      }
+    }
+
+    function pluginMatches(plugin) {
+      const q = state.query.trim().toLowerCase();
+      if (!q) return true;
+      return (plugin.title + ' ' + plugin.description + ' ' + plugin.packageName + ' ' + plugin.tags.join(' ')).toLowerCase().includes(q);
+    }
+
+    function pluginById(id) { return plugins.find((plugin) => plugin.id === id); }
+
+    function renderPlugins() {
+      const mount = $('plugin-mount');
+      const empty = $('plugin-empty');
+      const tabs = document.querySelectorAll('[data-action="plugin-tab"]');
+      tabs.forEach((tab) => {
+        const on = tab.dataset.tab === state.pluginTab;
+        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      if (state.view !== 'plugins') return;
+      if (state.pluginDetail) {
+        const plugin = pluginById(state.pluginDetail);
+        empty.hidden = true;
+        if (!plugin) {
+          state.pluginDetail = null;
+        } else {
+          const action = plugin.bundled
+            ? '<span class="caption">随 DSH 提供</span>'
+            : plugin.installed
+              ? '<span class="od-row"><span>' + (plugin.enabled ? '已启用' : '已停用') + '</span><button type="button" class="switch" data-action="toggle-plugin" data-plugin="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-label="启用 ' + esc(plugin.title) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button></span>'
+              : '<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>';
+          mount.innerHTML = '<article class="detail"><button type="button" class="text-btn detail-back" data-action="plugin-back">返回列表</button><h2>' + esc(plugin.title) + '</h2><p>' + esc(plugin.description) + '</p><p class="plugin-meta od-truncate" title="' + esc(plugin.packageName) + '">' + esc(plugin.packageName) + '</p><p class="caption">' + esc(plugin.version) + ' · ' + esc(plugin.author) + ' · ' + esc(plugin.source) + '</p><div class="od-rail" style="--od-rail-pad:0px">' + plugin.tags.map((tag) => '<span class="chip">' + esc(tag) + '</span>').join('') + '</div><div class="plugin-actions">' + action + '</div></article>';
+          return;
+        }
+      }
+      const list = plugins.filter((plugin) => (state.pluginTab === 'installed' ? plugin.installed : true) && pluginMatches(plugin));
+      empty.hidden = list.length !== 0;
+      if (!list.length) {
+        mount.innerHTML = '';
+        return;
+      }
+      mount.innerHTML = '<div class="plugin-grid">' + list.map((plugin) => {
+        const trailing = state.pluginTab === 'installed'
+          ? (plugin.bundled
+            ? '<span class="caption">随 DSH 提供</span>'
+            : '<button type="button" class="switch" data-action="toggle-plugin" data-plugin="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-label="' + (plugin.enabled ? '停用 ' : '启用 ') + esc(plugin.title) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>')
+          : (plugin.installed
+            ? '<button type="button" class="secondary" data-action="show-installed" data-plugin="' + esc(plugin.id) + '">已安装</button>'
+            : '<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>');
+        return '<article class="plugin-card"><button type="button" class="plugin-open" data-action="plugin-open" data-plugin="' + esc(plugin.id) + '"><span class="plugin-title">' + esc(plugin.title) + '</span><span class="plugin-desc od-clamp-2">' + esc(plugin.description) + '</span><span class="plugin-meta od-truncate">' + esc(plugin.packageName) + '</span></button><div class="od-rail" style="--od-rail-pad:0px">' + plugin.tags.map((tag) => '<span class="chip">' + esc(tag) + '</span>').join('') + '</div><div class="plugin-actions"><span class="caption">' + esc(plugin.version) + '</span>' + trailing + '</div></article>';
+      }).join('') + '</div>';
+    }
+
+    function roleLabel(role) {
+      return { user: '用户消息', context: '上下文注入', think: '思考', assistant: '回复', note: '状态' }[role] || role;
+    }
+
+    function messageSummary(message) {
+      if (message.role === 'context') return message.items.map((item) => item.name).join('、');
+      return message.text;
+    }
+
+    function renderInspector() {
+      const panel = $('inspector');
+      const main = $('main');
+      if (!state.inspector || state.view !== 'conversation') {
+        panel.hidden = true;
+        main.classList.remove('has-inspector');
+        return;
+      }
+      panel.hidden = false;
+      main.classList.add('has-inspector');
+      const title = state.inspector === 'log' ? 'Session log' : '轨迹';
+      $('inspector-title').textContent = title;
+      const session = currentSession().session;
+      const body = $('inspector-body');
+      if (!session || session.messages.length === 0) {
+        body.innerHTML = '<p class="empty">这个会话还没有记录。先发送一条消息。</p>';
+        return;
+      }
+      if (state.inspector === 'log') {
+        body.innerHTML = '<table class="log-table"><thead><tr><th>序号</th><th>类型</th><th>摘要</th></tr></thead><tbody>' + session.messages.map((message, index) => '<tr><td class="od-nowrap">' + (index + 1) + '</td><td class="od-nowrap">' + esc(roleLabel(message.role)) + '</td><td>' + esc(messageSummary(message)) + '</td></tr>').join('') + '</tbody></table>';
+        return;
+      }
+      body.innerHTML = '<ol class="timeline">' + session.messages.map((message, index) => '<li><span class="caption od-nowrap">' + (index + 1) + ' · ' + esc(roleLabel(message.role)) + '</span><span>' + esc(messageSummary(message)) + '</span></li>').join('') + '</ol>';
+    }
+
+    function syncUsage() {
+      const session = currentSession().session;
+      const usage = deriveUsage(session);
+      const stats = $('stats');
+      const heroMode = state.view !== 'conversation' || !session || session.messages.length === 0;
+      if (heroMode || !usage) {
+        stats.hidden = true;
+        stats.textContent = '';
+        return;
+      }
+      stats.hidden = false;
+      stats.textContent = usage.turns + ' 轮 · ' + usage.steps + ' 步 · 输入 ' + usage.input + ' 字符 · 输出 ' + usage.output + ' 字符 · 本地示例';
+    }
+
+    function syncComposerWorkspace() {
+      const menu = $('composer-workspace-menu');
+      const trigger = $('composer-workspace');
+      const ids = state.workspaces.map((ws) => ws.id).join('\n');
+      if (menu.dataset.ids !== ids) {
+        menu.dataset.ids = ids;
+        menu.innerHTML = state.workspaces.map((ws) => {
+          const on = ws.id === state.activeWorkspace;
+          return '<button type="button" class="picker-option" role="option" data-value="' + esc(ws.id) + '" aria-selected="' + (on ? 'true' : 'false') + '"><span class="picker-label">' + esc(ws.name) + '</span>' + CHECK_ICON + '</button>';
+        }).join('');
+      } else {
+        menu.querySelectorAll('[role="option"]').forEach((item) => {
+          item.setAttribute('aria-selected', item.dataset.value === state.activeWorkspace ? 'true' : 'false');
+        });
+      }
+      const current = state.workspaces.find((ws) => ws.id === state.activeWorkspace);
+      trigger.querySelector('.picker-value').textContent = current ? current.name : '';
+    }
+
+    function syncSend() {
+      const idle = !state.sending && !composerInput.value.trim();
+      sendBtn.classList.toggle('is-idle', idle);
+      sendBtn.innerHTML = state.sending ? ICONS.stop : ICONS.send;
+      sendBtn.setAttribute('aria-label', state.sending ? '停止生成' : '发送消息');
+      composerInput.disabled = state.sending;
+    }
+
+    function syncBrowser() {
+      const allowed = state.mode === 'compatibility';
+      const browserSwitch = $('browser-switch');
+      const lanSwitch = $('lan-switch');
+      browserSwitch.disabled = !allowed;
+      if (!allowed && state.openBrowser) state.openBrowser = false;
+      if (!state.openBrowser && state.lan) state.lan = false;
+      setSwitch(browserSwitch, state.openBrowser);
+      lanSwitch.disabled = !state.openBrowser;
+      setSwitch(lanSwitch, state.lan);
+      $('browser-notice').hidden = allowed;
+      $('url-block').hidden = !state.openBrowser;
+      $('browser-url').textContent = 'http://127.0.0.1:' + state.port + '/';
+      $('lan-note').hidden = !state.lan;
+    }
+
+    function syncNotify() {
+      document.querySelectorAll('[data-notify]').forEach((button) => {
+        const key = button.dataset.notify;
+        setSwitch(button, !!state.notify[key]);
+        if (key !== 'enabled') button.disabled = !state.notify.enabled;
+      });
+    }
+
+    function syncModes() {
+      document.querySelectorAll('input[name="window-mode"]').forEach((input) => {
+        const on = input.value === state.mode;
+        input.checked = on;
+        const choice = input.closest('.choice');
+        choice.classList.toggle('is-selected', on);
+        choice.querySelector('.choice-status').textContent = on ? '已选择' : '';
+      });
+    }
+
+    function applyTheme(theme) {
+      state.theme = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = state.theme;
+      document.querySelectorAll('input[name="color-theme"]').forEach((input) => {
+        const on = input.value === state.theme;
+        input.checked = on;
+        const choice = input.closest('.choice');
+        if (!choice) return;
+        choice.classList.toggle('is-selected', on);
+        const status = choice.querySelector('.choice-status');
+        if (status) status.textContent = on ? '已选择' : '';
+      });
+    }
+
+    function syncSettingsTabs() {
+      document.querySelectorAll('[data-settings-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.settingsPanel !== state.settingsTab;
+      });
+      document.querySelectorAll('.set-nav[data-action="settings-tab"]').forEach((tab) => {
+        tab.setAttribute('aria-selected', tab.dataset.tab === state.settingsTab ? 'true' : 'false');
+      });
+    }
+
+    function syncPersona() {
+      const callBtn = $('call-name-btn');
+      const nameBtn = $('assistant-name-btn');
+      callBtn.textContent = state.callName || '暂无内容，点击编辑添加';
+      callBtn.classList.toggle('is-filled', !!state.callName);
+      nameBtn.textContent = state.assistantName || '暂无内容，点击编辑添加';
+      nameBtn.classList.toggle('is-filled', !!state.assistantName);
+      callBtn.hidden = state.editing === 'callName';
+      $('call-name-editor').hidden = state.editing !== 'callName';
+      nameBtn.hidden = state.editing === 'assistantName';
+      $('assistant-name-editor').hidden = state.editing !== 'assistantName';
+
+      const instructionView = $('instruction-view');
+      instructionView.textContent = state.instruction || '例如：回答尽量简洁，先给结论';
+      instructionView.classList.toggle('is-filled', !!state.instruction);
+      instructionView.hidden = state.editing === 'instruction';
+      $('instruction-editor').hidden = state.editing !== 'instruction';
+      $('instruction-edit').textContent = state.editing === 'instruction' ? '完成' : '编辑';
+
+      const personaView = $('persona-view');
+      personaView.textContent = state.personaText;
+      personaView.hidden = state.editing === 'personaText' || !state.personaText;
+      $('persona-editor').hidden = state.editing !== 'personaText';
+      $('persona-edit').textContent = state.editing === 'personaText' ? '完成' : '编辑';
+
+      setSwitch($('home-suggest'), state.homeSuggest);
+      const styleLabels = { default: '默认', brief: '简洁', detailed: '详细', warm: '亲切' };
+      $('reply-style').querySelector('.picker-value').textContent = styleLabels[state.replyStyle] || '默认';
+      $('reply-style-menu').querySelectorAll('[role="option"]').forEach((item) => {
+        item.setAttribute('aria-selected', item.dataset.value === state.replyStyle ? 'true' : 'false');
+      });
+      const suggest = $('home-suggest-row');
+      if (suggest) {
+        const session = currentSession().session;
+        const heroMode = state.view === 'conversation' && (!session || session.messages.length === 0);
+        suggest.hidden = !heroMode || !state.homeSuggest;
+      }
+    }
+
+    function beginFieldEdit(field) {
+      state.editing = field;
+      syncPersona();
+      const input = $(field + '-input');
+      if (!input) return;
+      const values = {
+        callName: state.callName,
+        assistantName: state.assistantName,
+        instruction: state.instruction,
+        personaText: state.personaText
+      };
+      input.value = values[field] || '';
+      input.focus();
+    }
+
+    function commitField(field) {
+      const input = $(field + '-input');
+      if (input) {
+        const value = input.value.trim();
+        if (field === 'callName') state.callName = value;
+        if (field === 'assistantName') state.assistantName = value;
+        if (field === 'instruction') state.instruction = value;
+        if (field === 'personaText') state.personaText = value;
+      }
+      if (state.editing === field) state.editing = '';
+      syncPersona();
+    }
+
+    function syncChrome() {
+      const found = currentSession();
+      const session = found.session;
+      const heroMode = state.view === 'conversation' && (!session || session.messages.length === 0);
+      placeComposer(heroMode);
+      viewConversation.hidden = state.view !== 'conversation';
+      viewPlugins.hidden = state.view !== 'plugins';
+      viewMessages.hidden = state.view !== 'messages';
+      viewConversation.classList.toggle('is-chat', !heroMode && state.view === 'conversation');
+      hero.hidden = !heroMode;
+      const suggest = $('home-suggest-row');
+      if (suggest) suggest.hidden = !heroMode || !state.homeSuggest;
+      transcript.hidden = heroMode || state.view !== 'conversation';
+      dock.hidden = heroMode || state.view !== 'conversation';
+      $('session-tools').hidden = state.view !== 'conversation';
+      const menuPlugins = $('menu-plugins');
+      if (state.view === 'plugins') {
+        menuPlugins.setAttribute('aria-current', 'page');
+        $('workspace-kicker').textContent = '插件';
+        $('view-title').textContent = state.pluginTab === 'installed' ? '已安装' : '发现';
+      } else {
+        menuPlugins.removeAttribute('aria-current');
+        $('workspace-kicker').textContent = found.ws.name;
+        $('view-title').textContent = session ? session.title : '新会话';
+      }
+      composer.classList.toggle('is-hero', heroMode);
+      $('main').classList.toggle('is-home', heroMode);
+      $('main').classList.toggle('is-plain', state.view === 'messages');
+      syncComposerWorkspace();
+      composerInput.placeholder = heroMode ? '描述你想要构建的内容' : '给智能体发消息';
+      const narrow = narrowQuery.matches;
+      app.classList.toggle('is-rail', !narrow && state.rail);
+      app.classList.toggle('is-drawer', narrow && state.drawer);
+      $('scrim').hidden = !(narrow && state.drawer);
+      const sideLabel = narrow
+        ? (state.drawer ? '关闭侧边栏' : '打开侧边栏')
+        : (state.rail ? '打开侧边栏' : '收起侧边栏');
+      $('frame-toggle').setAttribute('aria-label', sideLabel);
+      syncUsage();
+      syncSend();
+    }
+
+    function renderAll(opts) {
+      renderSidebar();
+      renderTranscript(opts);
+      renderPlugins();
+      renderInspector();
+      syncChrome();
+    }
+
+    function grow() {
+      composerInput.style.height = 'auto';
+      composerInput.style.height = Math.min(composerInput.scrollHeight, 240) + 'px';
+    }
+
+    function createSession() {
+      const current = currentSession().session;
+      state.view = 'conversation';
+      state.inspector = null;
+      if (narrowQuery.matches) state.drawer = false;
+      if (current && current.messages.length === 0) {
+        state.activeSession = current.id;
+        renderAll();
+        composerInput.focus();
+        return;
+      }
+      const session = { id: uid(), title: '新会话', messages: [] };
+      currentWorkspace().sessions.unshift(session);
+      state.activeSession = session.id;
+      renderAll();
+      composerInput.focus();
+    }
+
+    function ensureSession() {
+      const current = currentSession().session;
+      if (current) return current;
+      const session = { id: uid(), title: '新会话', messages: [] };
+      currentWorkspace().sessions.unshift(session);
+      state.activeSession = session.id;
+      return session;
+    }
+
+    function finishTurn(session, text) {
+      if (!state.sending) return;
+      const quote = text.length > 80 ? text.slice(0, 80) + '…' : text;
+      const reply = state.access === 'full'
+        ? '这是本地模拟回复，没有连接 ' + state.model + '。权限是 ' + accessLabel() + '。你说：「' + quote + '」。'
+        : '这是本地模拟回复，没有连接 ' + state.model + '。当前权限是只读，不会描述写入文件。你说：「' + quote + '」。';
+      session.messages.push({ id: uid(), role: 'assistant', text: reply });
+      state.sending = false;
+      renderAll({ scroll: 'end' });
+      say('已写入本地回复');
+      composerInput.focus();
+    }
+
+    function send() {
+      const text = composerInput.value.trim();
+      if (!text || state.sending) return;
+      const session = ensureSession();
+      if (session.title === '新会话') {
+        const line = text.split('\n')[0].trim();
+        session.title = line.length > 24 ? line.slice(0, 24) + '…' : line;
+      }
+      const ws = currentWorkspace();
+      session.messages.push({ id: uid(), role: 'user', text: text });
+      composerInput.value = '';
+      grow();
+      state.sending = true;
+      renderAll({ scroll: 'end' });
+      const thinkId = uid();
+      later(() => {
+        if (!state.sending) return;
+        session.messages.push({
+          id: thinkId,
+          role: 'think',
+          open: true,
+          text: '工作区是「' + ws.name + '」。模型是 ' + state.model + '，权限是 ' + accessLabel() + '。这一轮不调用工具。'
+        });
+        session.messages.push({
+          id: uid(),
+          role: 'context',
+          open: false,
+          items: [{ name: '当前输入', state: '已新增' }],
+          note: '示例记录，没有读取工作区文件。'
+        });
+        renderAll({ scroll: 'end' });
+      }, 320);
+      later(() => finishTurn(session, text), 720);
+    }
+
+    function stopTurn() {
+      clearTimers();
+      if (!state.sending) return;
+      state.sending = false;
+      const session = currentSession().session;
+      if (session) session.messages.push({ id: uid(), role: 'note', text: '已停止' });
+      renderAll({ scroll: 'end' });
+      composerInput.focus();
+    }
+
+    function showDialog(dialog, opener) {
+      state.opener = opener || document.activeElement;
+      dialog.showModal();
+      const auto = dialog.querySelector('[data-autofocus]');
+      if (auto) auto.focus();
+    }
+
+    function openSettings(opener) {
+      syncModes();
+      syncBrowser();
+      syncNotify();
+      syncSettingsTabs();
+      syncPersona();
+      applyTheme(state.theme);
+      $('settings-model').textContent = state.model;
+      showDialog($('settings'), opener);
+      const current = document.querySelector('#settings .set-nav[data-tab="' + state.settingsTab + '"]');
+      if (current) current.focus();
+      syncChrome();
+    }
+
+    function parsePort(value) {
+      if (!/^\d+$/.test(value)) return null;
+      const n = Number(value);
+      if (n < 1 || n > 65535) return null;
+      return n;
+    }
+
+    function closePickers() {
+      document.querySelectorAll('.picker-menu').forEach((menu) => { menu.hidden = true; });
+      document.querySelectorAll('.picker-trigger').forEach((trigger) => {
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    function closeAppMenu() {
+      const menu = $('app-menu');
+      if (!menu || menu.hidden) return;
+      menu.hidden = true;
+      $('menu-app').setAttribute('aria-expanded', 'false');
+    }
+
+    function placeMenu(trigger, menu) {
+      const rect = trigger.getBoundingClientRect();
+      menu.style.minWidth = Math.max(rect.width, 180) + 'px';
+      const menuRect = menu.getBoundingClientRect();
+      const menuHeight = menuRect.height;
+      const menuWidth = menuRect.width;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < menuHeight + 16 && rect.top > menuHeight + 16;
+      let left = trigger.closest('.composer-end') ? rect.right - menuWidth : rect.left;
+      left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+      const top = openUp
+        ? Math.max(8, rect.top - menuHeight - 6)
+        : Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 6);
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+    }
+
+    function openPicker(trigger) {
+      const menu = document.getElementById(trigger.getAttribute('aria-controls'));
+      if (!menu) return;
+      closePickers();
+      menu.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      placeMenu(trigger, menu);
+      const selected = menu.querySelector('[aria-selected="true"]') || menu.querySelector('[role="option"]');
+      if (selected) selected.focus();
+    }
+
+    function choosePicker(option) {
+      const menu = option.closest('.picker-menu');
+      const trigger = document.querySelector('[aria-controls="' + CSS.escape(menu.id) + '"]');
+      if (!trigger) return;
+      menu.querySelectorAll('[role="option"]').forEach((item) => {
+        item.setAttribute('aria-selected', item === option ? 'true' : 'false');
+      });
+      const label = option.querySelector('.picker-label');
+      trigger.querySelector('.picker-value').textContent = label ? label.textContent : '';
+      closePickers();
+      const value = option.dataset.value;
+      if (trigger.id === 'access') state.access = value;
+      if (trigger.id === 'model') {
+        state.model = value;
+        $('settings-model').textContent = value;
+      }
+      if (trigger.id === 'reply-style') state.replyStyle = value;
+      if (trigger.id === 'log-level') {
+        $('log-status').textContent = '日志级别已记为 ' + value + '。只保存在这个页面里。';
+      }
+      if (trigger.id === 'composer-workspace') {
+        state.activeWorkspace = value;
+        const ws = currentWorkspace();
+        state.activeSession = ws.sessions[0] ? ws.sessions[0].id : null;
+        state.view = 'conversation';
+        state.inspector = null;
+        renderAll();
+      }
+      if (trigger.isConnected) trigger.focus();
+    }
+
+    document.addEventListener('click', (event) => {
+      const option = event.target.closest('.picker-option');
+      if (option) {
+        choosePicker(option);
+        return;
+      }
+      const trigger = event.target.closest('.picker-trigger');
+      if (trigger) {
+        if (trigger.getAttribute('aria-expanded') === 'true') closePickers();
+        else openPicker(trigger);
+        return;
+      }
+      closePickers();
+      if (!event.target.closest('.app-menu')) closeAppMenu();
+      const btn = event.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      if (action === 'skip') {
+        if ($('view-title').offsetParent === null) composerInput.focus();
+        else $('view-title').focus();
+        return;
+      }
+      if (action === 'toggle-app-menu') {
+        const menu = $('app-menu');
+        const open = menu.hidden;
+        menu.hidden = !open;
+        $('menu-app').setAttribute('aria-expanded', open ? 'true' : 'false');
+        return;
+      }
+      if (btn.closest('#app-menu')) closeAppMenu();
+      if (action === 'app-note') {
+        toast('这一项只在原型里展示');
+        return;
+      }
+      if (action === 'reload-ui') {
+        window.location.reload();
+        return;
+      }
+      if (action === 'window-control') {
+        toast('这个原型不能控制窗口');
+        return;
+      }
+      if (action === 'toggle-sidebar') {
+        if (narrowQuery.matches) state.drawer = !state.drawer;
+        else state.rail = !state.rail;
+        syncChrome();
+        return;
+      }
+      if (action === 'close-drawer') {
+        state.drawer = false;
+        syncChrome();
+        $('frame-toggle').focus();
+        return;
+      }
+      if (action === 'new-session') {
+        createSession();
+        return;
+      }
+      if (action === 'open-workspace') {
+        state.activeWorkspace = btn.dataset.workspace;
+        const ws = currentWorkspace();
+        state.activeSession = ws.sessions[0] ? ws.sessions[0].id : null;
+        state.view = 'conversation';
+        if (narrowQuery.matches) state.drawer = false;
+        renderAll({ scroll: 'end' });
+        return;
+      }
+      if (action === 'open-session') {
+        state.activeWorkspace = btn.dataset.workspace;
+        state.activeSession = btn.dataset.session;
+        state.view = 'conversation';
+        if (narrowQuery.matches) state.drawer = false;
+        renderAll({ scroll: 'end' });
+        return;
+      }
+      if (action === 'open-plugins' || action === 'goto-plugins') {
+        if ($('settings').open) $('settings').close();
+        state.view = 'plugins';
+        state.inspector = null;
+        if (action === 'goto-plugins') {
+          state.pluginTab = 'discover';
+          state.pluginDetail = null;
+        }
+        if (narrowQuery.matches) state.drawer = false;
+        renderAll();
+        $('view-title').focus();
+        return;
+      }
+      if (action === 'open-messages') {
+        state.view = 'messages';
+        state.inspector = null;
+        if (narrowQuery.matches) state.drawer = false;
+        renderAll();
+        return;
+      }
+      if (action === 'close-messages') {
+        state.view = 'conversation';
+        renderAll();
+        return;
+      }
+      if (action === 'open-settings') {
+        openSettings(btn);
+        return;
+      }
+      if (action === 'close-settings') {
+        if (!$('lan-layer').hidden) {
+          $('lan-layer').hidden = true;
+          return;
+        }
+        if (state.editing) commitField(state.editing);
+        $('settings').close();
+        return;
+      }
+      if (action === 'settings-edit') {
+        const field = btn.dataset.field;
+        if (state.editing === field) commitField(field);
+        else {
+          if (state.editing) commitField(state.editing);
+          beginFieldEdit(field);
+        }
+        return;
+      }
+      if (action === 'toggle-home-suggest') {
+        state.homeSuggest = !state.homeSuggest;
+        syncPersona();
+        return;
+      }
+      if (action === 'import-note') {
+        toast('这个原型不能导入文件');
+        return;
+      }
+      if (action === 'use-suggest') {
+        composerInput.value = btn.dataset.suggest;
+        grow();
+        syncSend();
+        composerInput.focus();
+        return;
+      }
+      if (action === 'settings-tab') {
+        if (state.editing) commitField(state.editing);
+        state.settingsTab = btn.dataset.tab;
+        syncSettingsTabs();
+        return;
+      }
+      if (action === 'open-inspector') {
+        state.inspector = state.inspector === btn.dataset.inspector ? null : btn.dataset.inspector;
+        state.view = 'conversation';
+        renderInspector();
+        syncChrome();
+        if (state.inspector) $('inspector').querySelector('[data-action="close-inspector"]').focus();
+        return;
+      }
+      if (action === 'close-inspector') {
+        state.inspector = null;
+        renderInspector();
+        document.querySelector('[data-inspector="trajectory"]').focus();
+        return;
+      }
+      if (action === 'toggle-context' || action === 'toggle-think') {
+        const session = currentSession().session;
+        const message = session && session.messages.find((item) => item.id === btn.dataset.id);
+        if (message) message.open = !message.open;
+        renderTranscript();
+        return;
+      }
+      if (action === 'copy') {
+        const session = currentSession().session;
+        const message = session && session.messages.find((item) => item.id === btn.dataset.id);
+        if (!message) return;
+        const text = message.text;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => toast('没能写入剪贴板'));
+        } else toast('没能写入剪贴板');
+        return;
+      }
+      if (action === 'feedback') {
+        const id = btn.dataset.id;
+        state.feedback[id] = state.feedback[id] === btn.dataset.vote ? '' : btn.dataset.vote;
+        renderTranscript();
+        return;
+      }
+      if (action === 'attach') {
+        toast('这个原型不能添加文件');
+        return;
+      }
+      if (action === 'send-click') return;
+      if (action === 'plugin-tab') {
+        state.pluginTab = btn.dataset.tab;
+        state.pluginDetail = null;
+        renderPlugins();
+        syncChrome();
+        return;
+      }
+      if (action === 'plugin-open') {
+        state.pluginDetail = btn.dataset.plugin;
+        renderPlugins();
+        const back = document.querySelector('[data-action="plugin-back"]');
+        if (back) back.focus();
+        return;
+      }
+      if (action === 'plugin-back') {
+        const id = state.pluginDetail;
+        state.pluginDetail = null;
+        renderPlugins();
+        const opener = id && document.querySelector('[data-action="plugin-open"][data-plugin="' + CSS.escape(id) + '"]');
+        if (opener) opener.focus();
+        return;
+      }
+      if (action === 'ask-install') {
+        const plugin = pluginById(btn.dataset.plugin);
+        if (!plugin || plugin.installed) return;
+        state.pendingPlugin = plugin.id;
+        $('install-title').textContent = '安装「' + plugin.title + '」？';
+        $('install-body').textContent = plugin.title + ' ' + plugin.version + '，作者 ' + plugin.author + '。';
+        showDialog($('install-dialog'), btn);
+        return;
+      }
+      if (action === 'close-install') {
+        $('install-dialog').close();
+        return;
+      }
+      if (action === 'confirm-install') {
+        const plugin = pluginById(state.pendingPlugin);
+        state.opener = null;
+        $('install-dialog').close();
+        if (!plugin) return;
+        plugin.installed = true;
+        plugin.enabled = true;
+        state.pluginDetail = plugin.id;
+        state.pluginTab = 'installed';
+        renderPlugins();
+        const back = document.querySelector('[data-action="plugin-back"]');
+        if (back) back.focus();
+        toast('已安装');
+        say(plugin.title + ' 已安装');
+        return;
+      }
+      if (action === 'show-installed') {
+        state.pluginTab = 'installed';
+        state.pluginDetail = btn.dataset.plugin;
+        renderPlugins();
+        syncChrome();
+        return;
+      }
+      if (action === 'toggle-plugin') {
+        const plugin = pluginById(btn.dataset.plugin);
+        if (!plugin || plugin.bundled) return;
+        plugin.enabled = !plugin.enabled;
+        renderPlugins();
+        toast(plugin.enabled ? '已启用' : '已停用');
+        return;
+      }
+      if (action === 'lan-cancel') {
+        $('lan-layer').hidden = true;
+        $('lan-switch').focus();
+        return;
+      }
+      if (action === 'lan-confirm') {
+        state.lan = true;
+        $('lan-layer').hidden = true;
+        syncBrowser();
+        $('lan-switch').focus();
+        return;
+      }
+    });
+
+    sendBtn.addEventListener('click', () => {
+      if (state.sending) stopTurn();
+      else send();
+    });
+
+    composerInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        send();
+      }
+    });
+    composerInput.addEventListener('input', () => {
+      grow();
+      syncSend();
+    });
+
+    $('plugin-search').addEventListener('input', () => {
+      state.query = $('plugin-search').value;
+      state.pluginDetail = null;
+      renderPlugins();
+    });
+
+    document.querySelectorAll('input[name="window-mode"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (!input.checked) return;
+        state.mode = input.value;
+        syncModes();
+        syncBrowser();
+        const names = { compatibility: '兼容模式', extended: '扩展模式', advanced: '增强模式' };
+        $('mode-status').textContent = '已选中' + names[state.mode] + '。真实应用会在重启后生效，此原型只更新当前选择。';
+      });
+    });
+
+    document.querySelectorAll('input[name="color-theme"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (!input.checked) return;
+        applyTheme(input.value);
+        $('theme-status').textContent = state.theme === 'dark' ? '已切换为深色模式。' : '已切换为浅色模式。';
+      });
+    });
+
+    document.querySelectorAll('[data-notify]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.notify;
+        state.notify[key] = !state.notify[key];
+        syncNotify();
+      });
+    });
+
+    $('browser-switch').addEventListener('click', () => {
+      if (state.mode !== 'compatibility') {
+        $('browser-notice').hidden = false;
+        return;
+      }
+      state.openBrowser = !state.openBrowser;
+      syncBrowser();
+    });
+
+    $('lan-switch').addEventListener('click', () => {
+      if (!state.openBrowser) return;
+      if (state.lan) {
+        state.lan = false;
+        syncBrowser();
+        return;
+      }
+      $('lan-layer').hidden = false;
+      $('lan-cancel').focus();
+    });
+
+    $('port').addEventListener('blur', () => {
+      const n = parsePort($('port').value.trim());
+      const error = $('port-error');
+      if (n === null) {
+        error.hidden = false;
+        error.textContent = '请输入 1 到 65535 之间的整数。';
+        $('port').setAttribute('aria-invalid', 'true');
+        return;
+      }
+      error.hidden = true;
+      error.textContent = '';
+      $('port').removeAttribute('aria-invalid');
+      if (n !== state.port) {
+        state.port = n;
+        $('port-status').textContent = '端口已记为 ' + n + '。真实应用会重启 Host，此原型只保存在页面里。';
+        syncBrowser();
+      }
+    });
+
+    $('check-updates').addEventListener('click', () => {
+      const button = $('check-updates');
+      button.disabled = true;
+      button.textContent = '正在检查…';
+      $('version-status').textContent = '';
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = '检查更新';
+        $('version-status').textContent = '没有发现新版本。当前 Desktop 2.0.18，Harness 0.2.2-rc.5。';
+      }, 700);
+    });
+
+    $('settings').addEventListener('cancel', (event) => {
+      if (state.editing) {
+        event.preventDefault();
+        const field = state.editing;
+        state.editing = '';
+        syncPersona();
+        const back = document.querySelector('[data-action="settings-edit"][data-field="' + field + '"]');
+        if (back) back.focus();
+        return;
+      }
+      const openMenu = document.querySelector('.picker-menu:not([hidden])');
+      if (openMenu) {
+        event.preventDefault();
+        const owner = document.querySelector('[aria-controls="' + CSS.escape(openMenu.id) + '"]');
+        closePickers();
+        if (owner) owner.focus();
+        return;
+      }
+      if (!$('lan-layer').hidden) {
+        event.preventDefault();
+        $('lan-layer').hidden = true;
+      }
+    });
+    $('settings').addEventListener('close', () => {
+      $('lan-layer').hidden = true;
+      if (state.opener && state.opener.isConnected) {
+        const back = state.opener;
+        state.opener = null;
+        back.focus();
+      }
+      syncChrome();
+    });
+    $('install-dialog').addEventListener('close', () => {
+      if (state.opener && state.opener.isConnected) {
+        const back = state.opener;
+        state.opener = null;
+        back.focus();
+      }
+    });
+
+    document.addEventListener('focusout', (event) => {
+      const picker = event.target.closest && event.target.closest('.picker');
+      if (!picker) return;
+      window.setTimeout(() => {
+        if (!picker.contains(document.activeElement)) {
+          const menu = picker.querySelector('.picker-menu');
+          const trigger = picker.querySelector('.picker-trigger');
+          if (menu) menu.hidden = true;
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        }
+      }, 0);
+    });
+    window.addEventListener('resize', () => {
+      document.querySelectorAll('.picker-trigger[aria-expanded="true"]').forEach((trigger) => {
+        const menu = document.getElementById(trigger.getAttribute('aria-controls'));
+        if (menu && !menu.hidden) placeMenu(trigger, menu);
+      });
+    });
+    document.addEventListener('scroll', (event) => {
+      const trigger = document.querySelector('.picker-trigger[aria-expanded="true"]');
+      if (!trigger) return;
+      if (event.target.closest && event.target.closest('.picker-menu')) return;
+      const menu = document.getElementById(trigger.getAttribute('aria-controls'));
+      if (menu && !menu.hidden) placeMenu(trigger, menu);
+    }, true);
+
+    document.addEventListener('keydown', (event) => {
+      const openMenu = document.querySelector('.picker-menu:not([hidden])');
+      if (openMenu && event.key === 'Escape') {
+        event.preventDefault();
+        const owner = document.querySelector('[aria-controls="' + CSS.escape(openMenu.id) + '"]');
+        closePickers();
+        if (owner) owner.focus();
+        return;
+      }
+      if (openMenu && (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End')) {
+        const options = [...openMenu.querySelectorAll('[role="option"]')];
+        if (!options.length) return;
+        event.preventDefault();
+        const index = options.indexOf(document.activeElement);
+        let next = index;
+        if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = options.length - 1;
+        else if (event.key === 'ArrowDown') next = Math.min(options.length - 1, (index < 0 ? -1 : index) + 1);
+        else next = Math.max(0, (index < 0 ? options.length : index) - 1);
+        options[next].focus();
+        return;
+      }
+      const pickerTrigger = event.target.closest && event.target.closest('.picker-trigger');
+      if (pickerTrigger && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        event.preventDefault();
+        openPicker(pickerTrigger);
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        createSession();
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === ',') {
+        event.preventDefault();
+        if (!$('settings').open) openSettings(document.activeElement);
+      }
+      if (event.key === 'Escape' && !$('app-menu').hidden) {
+        event.preventDefault();
+        closeAppMenu();
+        $('menu-app').focus();
+        return;
+      }
+      if (event.key === 'Escape' && state.drawer && narrowQuery.matches && !$('settings').open && !$('install-dialog').open) {
+        state.drawer = false;
+        syncChrome();
+        $('frame-toggle').focus();
+      }
+    });
+
+    narrowQuery.addEventListener('change', () => {
+      if (!narrowQuery.matches) state.drawer = false;
+      syncChrome();
+    });
+
+    document.querySelectorAll('[data-commit]').forEach((input) => {
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && input.tagName !== 'TEXTAREA') {
+          event.preventDefault();
+          commitField(input.dataset.commit);
+        }
+      });
+      input.addEventListener('blur', () => {
+        const field = input.dataset.commit;
+        window.setTimeout(() => {
+          if (state.editing !== field) return;
+          commitField(field);
+        }, 0);
+      });
+    });
+
+    applyTheme(state.theme);
+    renderAll();
+    grow();
+    composerInput.focus();
+  </script>
+</body>
+</html>

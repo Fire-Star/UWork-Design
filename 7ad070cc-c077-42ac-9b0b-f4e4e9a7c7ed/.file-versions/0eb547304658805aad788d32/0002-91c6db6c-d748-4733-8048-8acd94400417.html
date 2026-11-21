@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DSH Desktop</title>
+  <style>
+    /* OD-LAYOUT-PRIMITIVES v1 — structure only: display, flex/grid, overflow, wrapping, ratio, geometry.
+       Put this @layer first; product CSS outside the layer wins ordinary layout rules.
+       Native hidden and closed-dialog states take precedence over component display rules. */
+    @layer od-layout {
+      [hidden]:not([hidden="until-found" i]) { display: none !important; }
+      dialog:not([open]) { display: none !important; }
+
+      :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+
+      .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+      .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+      .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+      .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+      .od-fill    { flex: 1 1 0; min-width: 0; }
+      .od-fixed   { flex: none; }
+      .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+
+      .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+      :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+      .od-tile { display: grid; grid-template-rows: auto 1fr; }
+      :where(.od-tile) > :where(*) { display: block; }
+
+      .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+      .od-media-cover { object-fit: cover; }
+
+      .od-icon { display: inline-block; inline-size: var(--od-icon-size, 1em); block-size: var(--od-icon-size, 1em); flex: none; }
+
+      .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+      .od-clamp-2 { -webkit-line-clamp: 2; }
+      .od-clamp-3 { -webkit-line-clamp: 3; }
+      .od-lines-2 { min-height: calc(2 * 1.4em); }
+      .od-nowrap  { white-space: nowrap; }
+      .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+
+      .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+      .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+      .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+                 padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+      .od-rail::-webkit-scrollbar { display: none; }
+      :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+      :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+
+      .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+      .od-touch  { min-width: 44px; min-height: 44px; }
+    }
+    :root [hidden]:where(:not([hidden="until-found" i])) { display: none; }
+    /* /OD-LAYOUT-PRIMITIVES v1 */
+
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-light.woff2") format("woff2");
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-medium.woff2") format("woff2");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #151517;
+      --sidebar: #1b1b1c;
+      --label: #f9fafb;
+      --secondary: #cfd3d6;
+      --caption: #81858c;
+      --border: rgba(255, 255, 255, 0.12);
+      --border-soft: rgba(255, 255, 255, 0.06);
+      --hover: rgba(255, 255, 255, 0.08);
+      --active: #43454a;
+      --card: #2c2c2e;
+      --layer: #232324;
+      --selector: #353638;
+      --send: #4176e6;
+      --send-hover: #4868b2;
+      --info: #7aaaff;
+      --danger: #f25a5a;
+      --ok: #4ed17e;
+      --on-send: #ffffff;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --brand: "Montserrat", var(--font);
+      --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-panel: 28px;
+      --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.28);
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--label);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:disabled, [aria-disabled="true"] { cursor: default; }
+    :focus { outline: none; }
+    :focus-visible {
+      outline: 2px solid var(--info);
+      outline-offset: 2px;
+    }
+    .icon-16 { --od-icon-size: 16px; }
+    .icon-18 { --od-icon-size: 18px; }
+    .vh {
+      display: block;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .skip {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      z-index: 80;
+      transform: translateY(-140%);
+      background: var(--label);
+      color: #111111;
+      border: 0;
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+    }
+    .skip:focus { transform: none; }
+
+    .shell {
+      display: grid;
+      grid-template-rows: 36px minmax(0, 1fr);
+      height: 100dvh;
+      min-height: 0;
+      background: #181818;
+    }
+    .framebar {
+      position: relative;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      background: #232323;
+      color: var(--label);
+      user-select: none;
+    }
+    .frame-identity {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      max-width: calc(100% - 24px);
+    }
+    .frame-product {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .version-anchor { position: relative; flex: none; }
+    .frame-version {
+      min-height: 22px;
+      padding: 2px 5px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--caption);
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+    .frame-version[aria-expanded="true"] {
+      background: var(--hover);
+      color: var(--label);
+    }
+    .version-pop {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      z-index: 2;
+      display: grid;
+      gap: 8px;
+      width: 210px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--layer);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      transform: translateX(-50%);
+    }
+    .version-pop-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--caption);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .version-pop-head strong {
+      color: var(--label);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .version-check {
+      min-height: 32px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--label);
+      font-size: 13px;
+    }
+    .version-pop .status:empty { display: none; }
+    .app {
+      display: grid;
+      grid-template-columns: 256px minmax(0, 1fr);
+      min-height: 0;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      background: var(--sidebar);
+      color: var(--label);
+      border-right: 1px solid var(--border-soft);
+      padding: 8px;
+      gap: 8px;
+    }
+    .brand-btn, .new-session, .side-row, .nav-row, .icon-btn, .text-btn, .send, .choice, .switch {
+      border: 0;
+      background: transparent;
+    }
+    .brand-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      text-align: left;
+    }
+    .brand-mark { width: 22px; height: auto; display: block; }
+    .brand-copy { display: grid; gap: 0; }
+    .brand-name {
+      font-family: var(--brand);
+      font-weight: 500;
+      font-size: 16px;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+    .brand-harness {
+      font-family: var(--brand);
+      font-weight: 500;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      line-height: 1.2;
+      color: var(--caption);
+    }
+    .new-session {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 36px;
+      margin: 0 4px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--selector);
+      color: var(--label);
+    }
+    .kbd {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--caption);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0 4px;
+    }
+    .side-scroll { flex: 1 1 auto; }
+    .ws { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+    .ws-label {
+      margin: 0;
+      padding: 4px 12px;
+      color: var(--caption);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .side-row, .nav-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--secondary);
+      text-align: left;
+    }
+    .side-row.is-workspace { color: var(--label); font-weight: 600; }
+    .side-row[aria-current="true"], .nav-row[aria-current="page"] {
+      background: var(--active);
+      color: var(--label);
+    }
+    .side-foot {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-soft);
+    }
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      background: var(--bg);
+    }
+    .main.has-inspector { grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); }
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 56px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .topbar-title { display: grid; gap: 0; }
+    .kicker, .hero-badge, .caption, .choice-body, .field-help, .status {
+      margin: 0;
+      color: var(--caption);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .kicker { font-size: 12px; }
+    #view-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .text-btn, .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--secondary);
+      background: transparent;
+    }
+    .icon-btn { min-width: 36px; padding: 6px; }
+    .icon-btn[aria-pressed="true"] { background: var(--active); color: var(--label); }
+    .topbar-toggle { display: none; }
+    .stage { min-width: 0; min-height: 0; display: grid; }
+    #view-conversation, #view-plugins {
+      min-width: 0;
+      min-height: 0;
+    }
+    #view-conversation { display: grid; grid-template-rows: minmax(0, 1fr); }
+    #view-conversation.is-chat { grid-template-rows: minmax(0, 1fr) auto; }
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      min-height: 0;
+      padding: 32px 16px 40px;
+    }
+    .hero-copy { display: grid; gap: 8px; justify-items: center; width: min(760px, 100%); }
+    .hero-title {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+    }
+    .transcript { padding: 8px 16px 0; }
+    .thread {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px 0 12px;
+    }
+    .bubble {
+      align-self: flex-end;
+      max-width: min(560px, 88%);
+      margin: 0;
+      padding: 10px 14px;
+      border-radius: var(--radius-lg);
+      background: var(--card);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .assistant {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .disclosure {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-soft);
+      background: transparent;
+      text-align: left;
+      color: var(--secondary);
+    }
+    .disclosure-body {
+      margin: 0;
+      padding: 0 12px 8px 34px;
+      color: var(--secondary);
+    }
+    .disclosure-body p { margin: 0 0 4px; }
+    .msg-actions { display: flex; gap: 4px; }
+    .note { margin: 0; color: var(--caption); }
+    .dock {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+    #composer-slot-hero,
+    #composer-slot-dock,
+    .stats {
+      width: min(760px, 100%);
+    }
+    .stats {
+      margin: 0;
+      color: var(--caption);
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: center;
+    }
+    .composer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
+    .composer-meta {
+      display: none;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      min-height: 28px;
+      padding: 0 6px;
+    }
+    .composer.is-hero .composer-meta { display: flex; }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      color: var(--secondary);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .composer-card {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 12px 10px;
+      border-radius: var(--radius-panel);
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border), var(--shadow-soft);
+    }
+    .composer-card:focus-within { box-shadow: 0 0 0 1px var(--info), var(--shadow-soft); }
+    .composer-input {
+      display: block;
+      width: 100%;
+      min-height: 72px;
+      max-height: 240px;
+      margin: 0;
+      padding: 2px 8px 8px;
+      border: 0;
+      resize: none;
+      background: transparent;
+      line-height: 1.5;
+    }
+    .composer-input::placeholder { color: var(--caption); }
+    .composer-input:focus-visible { outline: none; }
+    .composer:not(.is-hero) .composer-input { min-height: 40px; }
+    .composer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 2px;
+    }
+    .composer-tools, .composer-end { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .composer-end { margin-left: auto; flex: none; }
+    .access-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--secondary); }
+    .add, .send {
+      display: grid;
+      place-items: center;
+      flex: none;
+      border: 0;
+      border-radius: 999px;
+    }
+    .add {
+      width: 32px;
+      height: 32px;
+      background: var(--selector);
+      color: var(--label);
+    }
+    .send {
+      width: 34px;
+      height: 34px;
+      background: var(--send);
+      color: var(--on-send);
+    }
+    .send.is-idle { opacity: 0.4; }
+    .chip-select {
+      appearance: none;
+      -webkit-appearance: none;
+      max-width: 220px;
+      height: 28px;
+      padding: 0 16px 0 2px;
+      border: 0;
+      border-radius: 6px;
+      background-color: transparent;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23cfd3d6' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right center;
+      background-size: 12px 12px;
+      color: var(--secondary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .plugins { padding: 16px; }
+    .plugin-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .tabs { display: flex; gap: 4px; }
+    .tab {
+      min-height: 36px;
+      padding: 6px 12px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--secondary);
+    }
+    .tab[aria-selected="true"] {
+      background: var(--active);
+      color: var(--label);
+    }
+    .search {
+      display: grid;
+      gap: 4px;
+      min-width: min(280px, 100%);
+    }
+    .search input, .text-input, .select {
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--layer);
+      color: var(--label);
+    }
+    .plugin-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .plugin-card {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 12px;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .plugin-open {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      color: var(--label);
+    }
+    .plugin-title { font-weight: 600; }
+    .plugin-desc { color: var(--secondary); }
+    .plugin-meta { color: var(--caption); font-family: var(--mono); font-size: 12px; }
+    .chip {
+      display: block;
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--secondary);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .plugin-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .primary, .secondary, .danger {
+      min-height: 36px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+    }
+    .primary { background: var(--send); color: var(--on-send); border-color: var(--send); }
+    .secondary { background: transparent; color: var(--label); border-color: var(--border); }
+    .danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+    .detail-back { margin-bottom: 12px; }
+    .detail h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.35; }
+    .inspector {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      background: var(--sidebar);
+      border-left: 1px solid var(--border-soft);
+    }
+    .inspector-head, .dialog-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .inspector-head h2, .dialog-head h2 { margin: 0; font-size: 18px; }
+    .inspector-body, .dialog-body { padding: 16px; }
+    .log-table { width: 100%; border-collapse: collapse; }
+    .log-table th, .log-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border-soft);
+      text-align: left;
+      vertical-align: top;
+    }
+    .log-table th { color: var(--caption); font-weight: 600; font-size: 13px; }
+    .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+    .timeline li { display: grid; gap: 2px; }
+    dialog[open] {
+      display: flex;
+      flex-direction: column;
+      width: min(880px, calc(100vw - 32px));
+      max-height: min(860px, calc(100dvh - 32px));
+      padding: 0;
+      border: 0;
+      border-radius: var(--radius-lg);
+      background: var(--layer);
+      color: var(--label);
+      box-shadow: 0 0 0 1px var(--border), var(--shadow-soft);
+    }
+    #install-dialog[open] { width: min(440px, calc(100vw - 32px)); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+    .dialog-body { display: grid; gap: 16px; }
+    .group { display: grid; gap: 8px; }
+    .group h3 { margin: 0; font-size: 16px; }
+    .choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 0 0 1px var(--border-soft);
+      text-align: left;
+      color: var(--label);
+    }
+    .choice.is-selected { box-shadow: 0 0 0 1px var(--info); }
+    .choice input { margin-top: 4px; accent-color: var(--send); }
+    .choice-title { font-weight: 600; }
+    .choice-status { color: var(--info); font-size: 13px; }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 44px;
+    }
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex: none;
+    }
+    .switch-track {
+      display: block;
+      width: 40px;
+      height: 22px;
+      border-radius: 999px;
+      background: var(--active);
+      position: relative;
+    }
+    .switch-thumb {
+      display: block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--label);
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform 160ms ease-out;
+    }
+    .switch[aria-checked="true"] .switch-track { background: var(--send); }
+    .switch[aria-checked="true"] .switch-thumb { transform: translateX(18px); }
+    .switch[aria-checked="true"] .switch-thumb { background: var(--on-send); }
+    .switch:disabled { opacity: 0.4; }
+    .field-error { margin: 0; color: var(--danger); }
+    .url {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+    .lan-layer {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.48);
+    }
+    .lan-card {
+      width: min(440px, 100%);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: var(--card);
+      box-shadow: 0 0 0 1px var(--border);
+      display: grid;
+      gap: 12px;
+    }
+    .lan-card h3 { margin: 0; font-size: 18px; }
+    .lan-card p { margin: 0; color: var(--secondary); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      border: 0;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    #settings { position: relative; }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 70;
+      margin: 0;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      background: #43454a;
+      color: var(--label);
+      box-shadow: 0 0 0 1px var(--border);
+    }
+    .empty { margin: 24px 0; color: var(--secondary); }
+
+    @media (hover: hover) {
+      .brand-btn:hover, .side-row:hover, .nav-row:hover, .text-btn:hover, .icon-btn:hover, .tab:hover, .frame-version:hover, .disclosure:hover, .version-check:hover {
+        background: var(--hover);
+      }
+      .new-session:hover, .add:hover { background: #3d3e40; }
+      .send:hover:not(.is-idle) { background: var(--send-hover); }
+      .primary:hover { background: var(--send-hover); }
+      .plugin-card:hover { box-shadow: 0 0 0 1px var(--border); }
+    }
+    @media (max-width: 1199px) {
+      .plugin-grid { grid-template-columns: 1fr; }
+    }
+    @media (min-width: 768px) {
+      .plugin-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 1200px) {
+      .plugin-grid { grid-template-columns: 1fr 1fr 1fr; }
+    }
+    @media (max-width: 1023px) {
+      .app, .main.has-inspector { grid-template-columns: minmax(0, 1fr); }
+      .sidebar {
+        position: fixed;
+        top: 36px;
+        bottom: 0;
+        left: 0;
+        width: min(288px, calc(100vw - 48px));
+        z-index: 30;
+        transform: translateX(-105%);
+        transition: transform 200ms ease-out;
+      }
+      .app.is-drawer .sidebar { transform: none; }
+      .topbar-toggle { display: inline-flex; }
+      .kbd { display: none; }
+      .inspector {
+        position: fixed;
+        top: 36px;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 40;
+        grid-column: auto;
+        grid-row: auto;
+        border-left: 0;
+      }
+      .scrim { top: 36px; }
+    }
+    @media (min-width: 1024px) {
+      .app.is-rail { grid-template-columns: 56px minmax(0, 1fr); }
+      .app.is-rail .rail-hide { display: none; }
+      .app.is-rail .sidebar { padding-left: 10px; padding-right: 10px; align-items: center; }
+      .app.is-rail .brand-btn, .app.is-rail .new-session, .app.is-rail .nav-row { width: 36px; height: 36px; padding: 0; justify-content: center; }
+      .app.is-rail .side-scroll, .app.is-rail .side-foot .nav-row span { display: none; }
+    }
+    @media (max-width: 767px) {
+      .top-actions .text-btn span.label { display: none; }
+      .composer-row { flex-wrap: wrap; }
+      .composer-end { flex: none; }
+      .chip-select { max-width: min(220px, 100%); }
+      .hero { padding: 24px 16px; }
+      .hero-title { font-size: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button type="button" class="skip" data-action="skip">跳到主内容</button>
+  <div class="shell">
+    <header class="framebar">
+      <div class="frame-identity">
+        <span class="frame-product">DSH Desktop</span>
+        <div class="version-anchor">
+          <button type="button" class="frame-version" id="frame-version" data-action="toggle-version" aria-expanded="false" aria-controls="version-pop">v2.0.18</button>
+          <div class="version-pop" id="version-pop" hidden>
+            <div class="version-pop-head">
+              <span>当前版本</span>
+              <strong>v2.0.18</strong>
+            </div>
+            <button type="button" class="version-check" id="frame-check" data-action="frame-check">检查更新</button>
+            <p class="status" id="frame-version-status" role="status"></p>
+          </div>
+        </div>
+      </div>
+    </header>
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="od-row">
+        <button type="button" class="icon-btn" id="side-toggle" data-action="toggle-sidebar" aria-label="收起侧边栏">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 4v16" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>
+        </button>
+        <button type="button" class="brand-btn od-fill" data-action="new-session" aria-label="deepseek HARNESS，新建会话">
+          <img class="brand-mark" src="assets/deepseek-mark.svg" width="22" height="22" alt="">
+          <span class="brand-copy rail-hide">
+            <span class="brand-name">deepseek</span>
+            <span class="brand-harness">HARNESS</span>
+          </span>
+        </button>
+      </div>
+      <button type="button" class="new-session" data-action="new-session">
+        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+        <span class="rail-hide">新会话</span>
+        <kbd class="kbd rail-hide" aria-hidden="true">Ctrl N</kbd>
+      </button>
+      <div class="side-scroll od-scroll" id="session-mount"></div>
+      <div class="side-foot">
+        <button type="button" class="nav-row" data-action="open-plugins" id="nav-plugins">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h3V4H8v4zm5 0h3V5h-3v3zM8 14h3v-4H8v4zm5 1h3v-5h-3v5zM4 20h7v-4H4v4zm9 0h7v-3h-7v3z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+          <span class="rail-hide">插件</span>
+        </button>
+        <button type="button" class="nav-row" data-action="open-settings" id="nav-settings">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <span class="rail-hide">设置</span>
+        </button>
+      </div>
+    </aside>
+    <button type="button" class="scrim" id="scrim" data-action="close-drawer" hidden aria-label="关闭侧边栏"></button>
+    <div class="main" id="main">
+      <header class="topbar">
+        <button type="button" class="icon-btn topbar-toggle" id="top-toggle" data-action="toggle-sidebar" aria-label="打开侧边栏">
+          <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M9 4v16" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>
+        </button>
+        <div class="topbar-title od-fill">
+          <p class="kicker" id="workspace-kicker">dsh</p>
+          <h1 id="view-title" tabindex="-1">新会话</h1>
+        </div>
+        <div class="top-actions" id="session-tools">
+          <button type="button" class="text-btn" data-action="open-inspector" data-inspector="trajectory">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="6" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 6h8a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+            <span class="label">轨迹</span>
+          </button>
+          <button type="button" class="text-btn" data-action="open-inspector" data-inspector="log">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M10 8h4M10 12h4M10 16h3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+            <span class="label">Session log</span>
+          </button>
+        </div>
+      </header>
+      <div class="stage">
+        <section id="view-conversation" aria-labelledby="view-title">
+          <div class="hero" id="hero">
+            <div class="hero-copy">
+              <p class="hero-title">探索未至之境</p>
+              <p class="hero-badge">预览版</p>
+            </div>
+            <div id="composer-slot-hero"></div>
+          </div>
+          <div class="transcript od-scroll" id="transcript" hidden></div>
+          <div class="dock" id="dock" hidden>
+            <div id="composer-slot-dock"></div>
+            <p class="stats" id="stats" hidden></p>
+          </div>
+        </section>
+        <section id="view-plugins" hidden aria-labelledby="view-title">
+          <div class="plugins od-scroll">
+            <div class="plugin-head">
+              <div class="tabs" role="tablist" aria-label="插件">
+                <button type="button" class="tab" id="tab-installed" role="tab" data-action="plugin-tab" data-tab="installed" aria-selected="false" aria-controls="plugin-mount">已安装</button>
+                <button type="button" class="tab" id="tab-discover" role="tab" data-action="plugin-tab" data-tab="discover" aria-selected="true" aria-controls="plugin-mount">发现</button>
+              </div>
+              <label class="search">
+                <span>搜索</span>
+                <input id="plugin-search" type="search" placeholder="名称、说明或包名" autocomplete="off">
+              </label>
+            </div>
+            <p class="empty" id="plugin-empty" hidden>没有匹配的插件。换个词，或清空搜索后再看。</p>
+            <div id="plugin-mount"></div>
+          </div>
+        </section>
+      </div>
+      <aside class="inspector" id="inspector" hidden aria-labelledby="inspector-title">
+        <div class="inspector-head">
+          <h2 id="inspector-title">轨迹</h2>
+          <button type="button" class="icon-btn" data-action="close-inspector" aria-label="关闭">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="inspector-body od-scroll" id="inspector-body"></div>
+      </aside>
+    </div>
+  </div>
+  </div>
+
+  <div class="composer is-hero" id="composer">
+    <div class="composer-meta">
+      <label class="meta-chip">
+        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5h6l2 2H21V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V7.5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M3 10.5h18" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>
+        <select id="composer-workspace" class="chip-select" aria-label="工作区"></select>
+      </label>
+      <span class="meta-chip">
+        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 13.4 8.6 18.5 10 13.4 11.4 12 16.5 10.6 11.4 5.5 10 10.6 8.6 12 3.5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+        <span>标准模式</span>
+      </span>
+    </div>
+    <div class="composer-card">
+      <label class="vh" for="composer-input">消息</label>
+      <textarea id="composer-input" class="composer-input" rows="1" placeholder="描述你想要构建的内容"></textarea>
+      <div class="composer-row">
+        <div class="composer-tools">
+          <button type="button" class="add" data-action="attach" aria-label="添加">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          </button>
+          <label class="access-chip">
+            <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 5.5 6.2v5.6c0 4 2.6 7 6.5 8.2 3.9-1.2 6.5-4.2 6.5-8.2V6.2L12 3.5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+            <select id="access" class="chip-select" aria-label="权限">
+              <option value="full" selected>Full access</option>
+              <option value="read">只读</option>
+            </select>
+          </label>
+        </div>
+        <div class="composer-end">
+          <label class="vh" for="model">模型</label>
+          <select id="model" class="chip-select" aria-label="模型">
+            <option selected>DeepSeek-V4-Flash High</option>
+            <option>DeepSeek-V4-Flash</option>
+            <option>DeepSeek-V3</option>
+          </select>
+          <button type="button" class="send is-idle" id="send-btn" aria-label="发送消息">
+            <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="settings" aria-labelledby="settings-title">
+    <div class="dialog-head">
+      <div>
+        <h2 id="settings-title">DSH Desktop 设置</h2>
+        <p class="caption">管理窗口、连接和通知。改动只留在这个页面里。</p>
+      </div>
+      <button type="button" class="icon-btn" data-action="close-settings" aria-label="关闭设置">
+        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="tabs" role="tablist" aria-label="桌面设置" style="padding: 8px 16px 0;">
+      <button type="button" class="tab" role="tab" data-action="settings-tab" data-tab="general" aria-selected="true">通用</button>
+      <button type="button" class="tab" role="tab" data-action="settings-tab" data-tab="profile" aria-selected="false">Profile 与数据</button>
+      <button type="button" class="tab" role="tab" data-action="settings-tab" data-tab="web" aria-selected="false">浏览器与局域网</button>
+      <button type="button" class="tab" role="tab" data-action="settings-tab" data-tab="diag" aria-selected="false">诊断与恢复</button>
+    </div>
+    <div class="dialog-body od-scroll">
+      <div data-settings-panel="general">
+        <section class="group" aria-labelledby="mode-title">
+          <h3 id="mode-title">窗口模式</h3>
+          <p class="caption">选择窗口布局和桌面操作方式。</p>
+          <div class="od-stack" role="radiogroup" aria-labelledby="mode-title">
+            <label class="choice is-selected">
+              <input type="radio" name="window-mode" value="compatibility" checked>
+              <span class="od-field od-fill">
+                <span class="choice-title">兼容模式</span>
+                <span class="choice-body">使用官方客户端布局，顶部提供独立的桌面控制栏。兼容性最好。</span>
+              </span>
+              <span class="choice-status">已选择</span>
+            </label>
+            <label class="choice">
+              <input type="radio" name="window-mode" value="extended">
+              <span class="od-field od-fill">
+                <span class="choice-title">扩展模式</span>
+                <span class="choice-body">在官方内容区域外提供独立顶栏和侧边栏，可搭配玻璃背景。</span>
+              </span>
+              <span class="choice-status"></span>
+            </label>
+            <label class="choice">
+              <input type="radio" name="window-mode" value="advanced">
+              <span class="od-field od-fill">
+                <span class="choice-title">增强模式</span>
+                <span class="choice-body">使用桌面专用布局，调整侧边栏、内容面板和窗口操作方式。</span>
+              </span>
+              <span class="choice-status"></span>
+            </label>
+          </div>
+          <p class="status" id="mode-status" role="status"></p>
+        </section>
+        <section class="group" aria-labelledby="notify-title">
+          <h3 id="notify-title">桌面通知</h3>
+          <p class="caption">在任务完成或失败时接收系统通知。通知不会显示会话内容。这里只切换页面状态。</p>
+          <div class="setting-row">
+            <span>启用桌面通知</span>
+            <button type="button" class="switch" data-notify="enabled" role="switch" aria-checked="true" aria-label="启用桌面通知"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>
+          </div>
+          <div class="setting-row">
+            <span>本轮任务完成</span>
+            <button type="button" class="switch" data-notify="turnDone" role="switch" aria-checked="true" aria-label="本轮任务完成"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>
+          </div>
+          <div class="setting-row">
+            <span>本轮任务失败</span>
+            <button type="button" class="switch" data-notify="turnFail" role="switch" aria-checked="true" aria-label="本轮任务失败"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>
+          </div>
+          <div class="setting-row">
+            <span>后台任务完成</span>
+            <button type="button" class="switch" data-notify="jobDone" role="switch" aria-checked="true" aria-label="后台任务完成"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>
+          </div>
+          <div class="setting-row">
+            <span>后台任务失败</span>
+            <button type="button" class="switch" data-notify="jobFail" role="switch" aria-checked="true" aria-label="后台任务失败"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>
+          </div>
+        </section>
+        <section class="group" aria-labelledby="update-title">
+          <h3 id="update-title">版本与更新</h3>
+          <p class="caption">查看当前版本，并检查是否有可用的新版本。</p>
+          <div class="setting-row">
+            <span class="od-field">
+              <span class="choice-title">当前版本</span>
+              <span class="choice-body">Desktop 2.0.18 · Harness 0.2.2-rc.5</span>
+            </span>
+            <button type="button" class="secondary" id="check-updates">检查更新</button>
+          </div>
+          <p class="status" id="version-status" role="status"></p>
+        </section>
+      </div>
+      <div data-settings-panel="profile" hidden>
+        <section class="group">
+          <h3>Profile</h3>
+          <p class="caption">Profile 是一套配置环境。首次启动默认使用 desktop。此原型不读写本机目录。</p>
+          <div class="setting-row">
+            <span class="od-field">
+              <span class="choice-title">当前</span>
+              <span class="choice-body">desktop</span>
+            </span>
+            <span class="caption">可使用</span>
+          </div>
+        </section>
+      </div>
+      <div data-settings-panel="web" hidden>
+        <section class="group">
+          <h3>浏览器与局域网</h3>
+          <p class="caption">允许在浏览器中打开当前 Profile，并选择可访问的设备范围。</p>
+          <p class="caption">插件市场和远程控制设置已移至插件页面。</p>
+          <button type="button" class="secondary" data-action="goto-plugins">前往插件页面</button>
+          <label class="search">
+            <span>本地端口</span>
+            <input id="port" class="text-input" inputmode="numeric" value="43120" aria-describedby="port-help port-error">
+            <span class="field-help" id="port-help">默认 43120。真实应用修改后会重启 Host。</span>
+            <span class="field-error" id="port-error" hidden></span>
+          </label>
+          <p class="status" id="port-status" role="status"></p>
+          <div class="setting-row">
+            <span>允许在浏览器中打开</span>
+            <button type="button" class="switch" id="browser-switch" role="switch" aria-checked="true" aria-label="允许在浏览器中打开"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>
+          </div>
+          <p class="caption" id="browser-notice" hidden>浏览器访问仅在兼容模式下可用；如需开启，请先选择兼容模式。</p>
+          <div class="setting-row">
+            <span>局域网访问（需要 HTTPS）</span>
+            <button type="button" class="switch" id="lan-switch" role="switch" aria-checked="false" aria-label="局域网访问"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>
+          </div>
+          <div id="url-block">
+            <p class="choice-title">浏览器访问地址</p>
+            <p class="url" id="browser-url">http://127.0.0.1:43120/</p>
+            <p class="caption" id="lan-note" hidden>局域网地址和证书指纹由真实 Host 提供。此原型只保留确认步骤。</p>
+          </div>
+        </section>
+      </div>
+      <div data-settings-panel="diag" hidden>
+        <section class="group">
+          <h3>诊断与恢复</h3>
+          <p class="caption">恢复助手、托盘和安装器不在这个原型里。日志级别只保存在页面中。</p>
+          <label class="search">
+            <span>日志级别</span>
+            <select id="log-level" class="select">
+              <option>debug</option>
+              <option selected>info</option>
+              <option>warn</option>
+              <option>error</option>
+            </select>
+          </label>
+          <p class="status" id="log-status" role="status"></p>
+        </section>
+      </div>
+    </div>
+    <div class="lan-layer" id="lan-layer" hidden>
+      <div class="lan-card" role="alertdialog" aria-modal="true" aria-labelledby="lan-title" aria-describedby="lan-body">
+        <h3 id="lan-title">开启局域网访问？</h3>
+        <p id="lan-body">同一局域网中，持有访问链接的人可以通过 DSH 操作这台电脑。请仅与可信任的人共享链接。连接使用 HTTPS；访问设备需要安装并信任本机提供的证书。此原型不会真的打开端口。</p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary" id="lan-cancel" data-action="lan-cancel">取消</button>
+          <button type="button" class="danger" data-action="lan-confirm">开启局域网访问</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="install-dialog" aria-labelledby="install-title">
+    <div class="dialog-head">
+      <h2 id="install-title">安装插件</h2>
+      <button type="button" class="icon-btn" data-action="close-install" aria-label="关闭">
+        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <p id="install-body"></p>
+      <p class="caption">确认后只在这个页面里记为已安装，不会下载或执行任何包。</p>
+      <div class="dialog-actions">
+        <button type="button" class="secondary" data-action="close-install">取消</button>
+        <button type="button" class="primary" data-action="confirm-install" data-autofocus>安装</button>
+      </div>
+    </div>
+  </dialog>
+
+  <p class="toast" id="toast" hidden role="status"></p>
+  <p class="vh" id="live" aria-live="polite"></p>
+
+  <script>
+    const ICONS = {
+      copy: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M4 16V6a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>',
+      up: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11v9H5v-9h3zm0 0 4.2-6.2A2 2 0 0 1 14 4.2V8h5.2a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 18 19h-4.2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>',
+      down: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13V4h3v9h-3zm0 0-4.2 6.2A2 2 0 0 1 10 19.8V16H4.8a2 2 0 0 1-2-2.3l1.2-7A2 2 0 0 1 6 5h4.2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>',
+      chevron: '<svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      send: '<svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      stop: '<svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>'
+    };
+
+    const state = {
+      rail: false,
+      drawer: false,
+      view: 'conversation',
+      pluginTab: 'discover',
+      query: '',
+      pluginDetail: null,
+      pendingPlugin: null,
+      inspector: null,
+      contextOpen: false,
+      activeWorkspace: 'dsh',
+      activeSession: null,
+      access: 'full',
+      model: 'DeepSeek-V4-Flash High',
+      sending: false,
+      settingsTab: 'general',
+      mode: 'compatibility',
+      port: 43120,
+      openBrowser: true,
+      lan: false,
+      notify: { enabled: true, turnDone: true, turnFail: true, jobDone: true, jobFail: true },
+      feedback: {},
+      opener: null,
+      timers: []
+    };
+
+    const plugins = [
+      {
+        id: 'market-bundle',
+        title: '自定义插件索引',
+        packageName: '@deepseek-ai/dsh-experimental-plugin-market-bundle',
+        description: '在插件页添加“发现”标签页，从你添加的插件索引中浏览和安装插件。',
+        author: 'DeepSeek',
+        version: '0.2.2-rc.5',
+        source: '随 DSH 提供',
+        installed: true,
+        bundled: true,
+        enabled: true,
+        tags: ['插件', '索引']
+      },
+      {
+        id: 'community',
+        title: 'dsh-community-market',
+        packageName: 'dsh-community-market',
+        description: 'DSH Desktop 内置的开放插件市场，支持添加和选择自定义插件数据源。',
+        author: 'DSH Desktop',
+        version: '2.0.18',
+        source: '桌面端',
+        installed: true,
+        bundled: true,
+        enabled: true,
+        tags: ['市场']
+      },
+      {
+        id: 'oar',
+        title: 'OAR 子智能体',
+        packageName: '@deepseek-ai/dsh-experimental-subagent-oar',
+        description: '通过 OAR 向已安装的编程智能体委派任务，并提供 Codex 和 Claude Code 配置。',
+        author: 'DeepSeek',
+        version: '0.2.2-rc.5',
+        source: '实验性',
+        installed: false,
+        bundled: false,
+        enabled: false,
+        tags: ['实验性']
+      },
+      {
+        id: 'aa',
+        title: 'Agents-Anywhere',
+        packageName: 'agents-anywhere',
+        description: '通过 Agents-Anywhere，在手机或浏览器中访问这台电脑上的 DSH。',
+        author: 'DSH Desktop',
+        version: '2.0.18',
+        source: '桌面端',
+        installed: false,
+        bundled: false,
+        enabled: false,
+        tags: ['远程', 'Beta']
+      }
+    ];
+
+    let seq = 10;
+    const uid = () => { seq += 1; return 'm' + seq; };
+
+    state.workspaces = [
+      {
+        id: 'dsh',
+        name: 'dsh',
+        sessions: [
+          {
+            id: 'hi',
+            title: '你好',
+            messages: [
+              { id: 'u1', role: 'user', text: '你好' },
+              {
+                id: 'c1',
+                role: 'context',
+                open: false,
+                items: [
+                  { name: 'AGENTS.md', state: '已载入' },
+                  { name: 'README.zh.md', state: '已载入' }
+                ],
+                note: '示例记录。这个原型没有读取这些文件。'
+              },
+              { id: 't1', role: 'think', open: false, text: '用户在打招呼。这一轮不需要工具，直接回应即可。' },
+              { id: 'a1', role: 'assistant', text: '你好。我是这个桌面原型里的本地回复，没有连接 DeepSeek。当前工作区是 dsh，模型是 DeepSeek-V4-Flash High。可以继续输入，或打开轨迹和 Session log 看这一轮的记录。' }
+            ]
+          },
+          {
+            id: 'readme',
+            title: '看 README',
+            messages: [
+              { id: 'u2', role: 'user', text: '这个仓库的桌面端入口在哪？' },
+              { id: 'a2', role: 'assistant', text: '桌面壳在 dsh-plugin-desktop，Next 变体在 dsh-desktop-next。这是页面里的示例回复，没有打开仓库。' }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'aa',
+        name: 'Agents-Anywhere',
+        sessions: [
+          {
+            id: 'phone',
+            title: '手机连接',
+            messages: [
+              { id: 'u3', role: 'user', text: '怎么在手机上打开这台电脑上的 DSH？' },
+              { id: 'a3', role: 'assistant', text: '真实的 DSH Desktop 里，开启手机连接后，侧栏会出现入口。这个原型只保留说明，不会生成访问链接。' }
+            ]
+          }
+        ]
+      },
+      { id: 'next', name: 'dsh-desktop-next', sessions: [] }
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const app = $('app');
+    const composer = $('composer');
+    const composerInput = $('composer-input');
+    const sendBtn = $('send-btn');
+    const transcript = $('transcript');
+    const hero = $('hero');
+    const dock = $('dock');
+    const viewConversation = $('view-conversation');
+    const viewPlugins = $('view-plugins');
+    const narrowQuery = window.matchMedia('(max-width: 1023px)');
+
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    function toast(text) {
+      const node = $('toast');
+      node.textContent = text;
+      node.hidden = false;
+      window.clearTimeout(toast._t);
+      toast._t = window.setTimeout(() => { node.hidden = true; }, 2200);
+    }
+
+    function say(text) { $('live').textContent = text; }
+
+    function currentWorkspace() {
+      return state.workspaces.find((ws) => ws.id === state.activeWorkspace) || state.workspaces[0];
+    }
+
+    function currentSession() {
+      for (const ws of state.workspaces) {
+        const session = ws.sessions.find((item) => item.id === state.activeSession);
+        if (session) return { ws, session };
+      }
+      return { ws: currentWorkspace(), session: null };
+    }
+
+    function accessLabel() { return state.access === 'full' ? 'Full access' : '只读'; }
+
+    function deriveUsage(session) {
+      if (!session) return null;
+      const users = session.messages.filter((m) => m.role === 'user');
+      const replies = session.messages.filter((m) => m.role === 'assistant');
+      const input = users.reduce((sum, m) => sum + m.text.length, 0);
+      const output = replies.reduce((sum, m) => sum + m.text.length, 0);
+      if (input + output === 0) return null;
+      return { input, output, turns: users.length, steps: replies.length };
+    }
+
+    function later(fn, ms) {
+      const id = window.setTimeout(fn, ms);
+      state.timers.push(id);
+      return id;
+    }
+
+    function clearTimers() {
+      state.timers.forEach((id) => window.clearTimeout(id));
+      state.timers = [];
+    }
+
+    function setSwitch(button, on) {
+      if (!button) return;
+      button.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+
+    function placeComposer(inHero) {
+      const slot = $(inHero ? 'composer-slot-hero' : 'composer-slot-dock');
+      if (composer.parentElement !== slot) slot.appendChild(composer);
+    }
+
+    function renderSidebar() {
+      const mount = $('session-mount');
+      const prev = document.activeElement;
+      const restoreSession = prev && prev.dataset ? prev.dataset.session : '';
+      const restoreWs = prev && prev.dataset && prev.dataset.action === 'open-workspace' ? prev.dataset.workspace : '';
+      mount.innerHTML = state.workspaces.map((ws) => {
+        const rows = ws.sessions.length
+          ? ws.sessions.map((session) => {
+            const current = session.id === state.activeSession ? 'true' : 'false';
+            return '<button type="button" class="side-row" data-action="open-session" data-workspace="' + esc(ws.id) + '" data-session="' + esc(session.id) + '" aria-current="' + current + '"><span class="od-truncate">' + esc(session.title) + '</span></button>';
+          }).join('')
+          : '<p class="ws-label">还没有会话</p>';
+        const currentWs = ws.id === state.activeWorkspace ? ' is-workspace' : '';
+        return '<section class="ws" aria-label="' + esc(ws.name) + '"><button type="button" class="side-row' + currentWs + '" data-action="open-workspace" data-workspace="' + esc(ws.id) + '"><span class="od-truncate">' + esc(ws.name) + '</span></button>' + rows + '</section>';
+      }).join('');
+      if (restoreSession) {
+        const btn = mount.querySelector('[data-session="' + CSS.escape(restoreSession) + '"]');
+        if (btn) btn.focus();
+      } else if (restoreWs) {
+        const btn = mount.querySelector('[data-action="open-workspace"][data-workspace="' + CSS.escape(restoreWs) + '"]');
+        if (btn) btn.focus();
+      }
+    }
+
+    function messageHtml(message) {
+      if (message.role === 'user') {
+        return '<p class="bubble">' + esc(message.text) + '</p>';
+      }
+      if (message.role === 'context') {
+        const summary = message.items.map((item) => item.state + ' ' + item.name).join('、');
+        const body = message.open
+          ? '<div class="disclosure-body">' + message.items.map((item) => '<p>' + esc(item.state) + ' ' + esc(item.name) + '</p>').join('') + (message.note ? '<p class="caption">' + esc(message.note) + '</p>' : '') + '</div>'
+          : '';
+        return '<div><button type="button" class="disclosure" data-action="toggle-context" data-id="' + esc(message.id) + '" aria-expanded="' + (message.open ? 'true' : 'false') + '">' + ICONS.chevron + '<span class="od-field od-fill"><span>上下文注入</span><span class="caption od-clamp-2">' + esc(summary) + '</span></span></button>' + body + '</div>';
+      }
+      if (message.role === 'think') {
+        const body = message.open ? '<div class="disclosure-body"><p>' + esc(message.text) + '</p></div>' : '';
+        return '<div><button type="button" class="disclosure" data-action="toggle-think" data-id="' + esc(message.id) + '" aria-expanded="' + (message.open ? 'true' : 'false') + '">' + ICONS.chevron + '<span class="od-field od-fill"><span>思考</span><span class="caption">已思考</span></span></button>' + body + '</div>';
+      }
+      if (message.role === 'assistant') {
+        const vote = state.feedback[message.id] || '';
+        return '<div class="od-stack"><p class="assistant">' + esc(message.text) + '</p><div class="msg-actions"><button type="button" class="icon-btn" data-action="copy" data-id="' + esc(message.id) + '" aria-label="复制">' + ICONS.copy + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="up" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'up' ? 'true' : 'false') + '" aria-label="有帮助">' + ICONS.up + '</button><button type="button" class="icon-btn" data-action="feedback" data-vote="down" data-id="' + esc(message.id) + '" aria-pressed="' + (vote === 'down' ? 'true' : 'false') + '" aria-label="没帮助">' + ICONS.down + '</button></div></div>';
+      }
+      return '<p class="note">' + esc(message.text) + '</p>';
+    }
+
+    function renderTranscript(opts) {
+      const session = currentSession().session;
+      const prev = document.activeElement;
+      const restore = prev && prev.dataset && prev.closest('#transcript')
+        ? { action: prev.dataset.action, id: prev.dataset.id, vote: prev.dataset.vote || '' }
+        : null;
+      const top = transcript.scrollTop;
+      transcript.innerHTML = session
+        ? '<div class="thread">' + session.messages.map(messageHtml).join('') + '</div>'
+        : '';
+      if (opts && opts.scroll === 'end') transcript.scrollTop = transcript.scrollHeight;
+      else transcript.scrollTop = top;
+      if (restore && restore.id) {
+        const voteSel = restore.vote ? '[data-vote="' + CSS.escape(restore.vote) + '"]' : '';
+        const btn = transcript.querySelector('[data-action="' + CSS.escape(restore.action) + '"][data-id="' + CSS.escape(restore.id) + '"]' + voteSel);
+        if (btn) btn.focus();
+      }
+    }
+
+    function pluginMatches(plugin) {
+      const q = state.query.trim().toLowerCase();
+      if (!q) return true;
+      return (plugin.title + ' ' + plugin.description + ' ' + plugin.packageName + ' ' + plugin.tags.join(' ')).toLowerCase().includes(q);
+    }
+
+    function pluginById(id) { return plugins.find((plugin) => plugin.id === id); }
+
+    function renderPlugins() {
+      const mount = $('plugin-mount');
+      const empty = $('plugin-empty');
+      const tabs = document.querySelectorAll('[data-action="plugin-tab"]');
+      tabs.forEach((tab) => {
+        const on = tab.dataset.tab === state.pluginTab;
+        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      $('nav-plugins').setAttribute('aria-current', state.view === 'plugins' ? 'page' : 'false');
+      if (state.view !== 'plugins') return;
+      if (state.pluginDetail) {
+        const plugin = pluginById(state.pluginDetail);
+        empty.hidden = true;
+        if (!plugin) {
+          state.pluginDetail = null;
+        } else {
+          const action = plugin.bundled
+            ? '<span class="caption">随 DSH 提供</span>'
+            : plugin.installed
+              ? '<span class="od-row"><span>' + (plugin.enabled ? '已启用' : '已停用') + '</span><button type="button" class="switch" data-action="toggle-plugin" data-plugin="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-label="启用 ' + esc(plugin.title) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button></span>'
+              : '<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>';
+          mount.innerHTML = '<article class="detail"><button type="button" class="text-btn detail-back" data-action="plugin-back">返回列表</button><h2>' + esc(plugin.title) + '</h2><p>' + esc(plugin.description) + '</p><p class="plugin-meta od-truncate" title="' + esc(plugin.packageName) + '">' + esc(plugin.packageName) + '</p><p class="caption">' + esc(plugin.version) + ' · ' + esc(plugin.author) + ' · ' + esc(plugin.source) + '</p><div class="od-rail" style="--od-rail-pad:0px">' + plugin.tags.map((tag) => '<span class="chip">' + esc(tag) + '</span>').join('') + '</div><div class="plugin-actions">' + action + '</div></article>';
+          return;
+        }
+      }
+      const list = plugins.filter((plugin) => (state.pluginTab === 'installed' ? plugin.installed : true) && pluginMatches(plugin));
+      empty.hidden = list.length !== 0;
+      if (!list.length) {
+        mount.innerHTML = '';
+        return;
+      }
+      mount.innerHTML = '<div class="plugin-grid">' + list.map((plugin) => {
+        const trailing = state.pluginTab === 'installed'
+          ? (plugin.bundled
+            ? '<span class="caption">随 DSH 提供</span>'
+            : '<button type="button" class="switch" data-action="toggle-plugin" data-plugin="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-label="' + (plugin.enabled ? '停用 ' : '启用 ') + esc(plugin.title) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button>')
+          : (plugin.installed
+            ? '<button type="button" class="secondary" data-action="show-installed" data-plugin="' + esc(plugin.id) + '">已安装</button>'
+            : '<button type="button" class="primary" data-action="ask-install" data-plugin="' + esc(plugin.id) + '">安装</button>');
+        return '<article class="plugin-card"><button type="button" class="plugin-open" data-action="plugin-open" data-plugin="' + esc(plugin.id) + '"><span class="plugin-title">' + esc(plugin.title) + '</span><span class="plugin-desc od-clamp-2">' + esc(plugin.description) + '</span><span class="plugin-meta od-truncate">' + esc(plugin.packageName) + '</span></button><div class="od-rail" style="--od-rail-pad:0px">' + plugin.tags.map((tag) => '<span class="chip">' + esc(tag) + '</span>').join('') + '</div><div class="plugin-actions"><span class="caption">' + esc(plugin.version) + '</span>' + trailing + '</div></article>';
+      }).join('') + '</div>';
+    }
+
+    function roleLabel(role) {
+      return { user: '用户消息', context: '上下文注入', think: '思考', assistant: '回复', note: '状态' }[role] || role;
+    }
+
+    function messageSummary(message) {
+      if (message.role === 'context') return message.items.map((item) => item.name).join('、');
+      return message.text;
+    }
+
+    function renderInspector() {
+      const panel = $('inspector');
+      const main = $('main');
+      if (!state.inspector || state.view !== 'conversation') {
+        panel.hidden = true;
+        main.classList.remove('has-inspector');
+        return;
+      }
+      panel.hidden = false;
+      main.classList.add('has-inspector');
+      const title = state.inspector === 'log' ? 'Session log' : '轨迹';
+      $('inspector-title').textContent = title;
+      const session = currentSession().session;
+      const body = $('inspector-body');
+      if (!session || session.messages.length === 0) {
+        body.innerHTML = '<p class="empty">这个会话还没有记录。先发送一条消息。</p>';
+        return;
+      }
+      if (state.inspector === 'log') {
+        body.innerHTML = '<table class="log-table"><thead><tr><th>序号</th><th>类型</th><th>摘要</th></tr></thead><tbody>' + session.messages.map((message, index) => '<tr><td class="od-nowrap">' + (index + 1) + '</td><td class="od-nowrap">' + esc(roleLabel(message.role)) + '</td><td>' + esc(messageSummary(message)) + '</td></tr>').join('') + '</tbody></table>';
+        return;
+      }
+      body.innerHTML = '<ol class="timeline">' + session.messages.map((message, index) => '<li><span class="caption od-nowrap">' + (index + 1) + ' · ' + esc(roleLabel(message.role)) + '</span><span>' + esc(messageSummary(message)) + '</span></li>').join('') + '</ol>';
+    }
+
+    function syncUsage() {
+      const session = currentSession().session;
+      const usage = deriveUsage(session);
+      const stats = $('stats');
+      const heroMode = state.view !== 'conversation' || !session || session.messages.length === 0;
+      if (heroMode || !usage) {
+        stats.hidden = true;
+        stats.textContent = '';
+        return;
+      }
+      stats.hidden = false;
+      stats.textContent = usage.turns + ' 轮 · ' + usage.steps + ' 步 · 输入 ' + usage.input + ' 字符 · 输出 ' + usage.output + ' 字符 · 本地示例';
+    }
+
+    function syncComposerWorkspace() {
+      const select = $('composer-workspace');
+      const ids = state.workspaces.map((ws) => ws.id).join('\n');
+      if (select.dataset.ids !== ids) {
+        select.dataset.ids = ids;
+        select.innerHTML = state.workspaces.map((ws) => '<option value="' + esc(ws.id) + '">' + esc(ws.name) + '</option>').join('');
+      }
+      if (select.value !== state.activeWorkspace) select.value = state.activeWorkspace;
+    }
+
+    function syncSend() {
+      const idle = !state.sending && !composerInput.value.trim();
+      sendBtn.classList.toggle('is-idle', idle);
+      sendBtn.innerHTML = state.sending ? ICONS.stop : ICONS.send;
+      sendBtn.setAttribute('aria-label', state.sending ? '停止生成' : '发送消息');
+      composerInput.disabled = state.sending;
+    }
+
+    function syncBrowser() {
+      const allowed = state.mode === 'compatibility';
+      const browserSwitch = $('browser-switch');
+      const lanSwitch = $('lan-switch');
+      browserSwitch.disabled = !allowed;
+      if (!allowed && state.openBrowser) state.openBrowser = false;
+      if (!state.openBrowser && state.lan) state.lan = false;
+      setSwitch(browserSwitch, state.openBrowser);
+      lanSwitch.disabled = !state.openBrowser;
+      setSwitch(lanSwitch, state.lan);
+      $('browser-notice').hidden = allowed;
+      $('url-block').hidden = !state.openBrowser;
+      $('browser-url').textContent = 'http://127.0.0.1:' + state.port + '/';
+      $('lan-note').hidden = !state.lan;
+    }
+
+    function syncNotify() {
+      document.querySelectorAll('[data-notify]').forEach((button) => {
+        const key = button.dataset.notify;
+        setSwitch(button, !!state.notify[key]);
+        if (key !== 'enabled') button.disabled = !state.notify.enabled;
+      });
+    }
+
+    function syncModes() {
+      document.querySelectorAll('input[name="window-mode"]').forEach((input) => {
+        const on = input.value === state.mode;
+        input.checked = on;
+        const choice = input.closest('.choice');
+        choice.classList.toggle('is-selected', on);
+        choice.querySelector('.choice-status').textContent = on ? '已选择' : '';
+      });
+    }
+
+    function syncSettingsTabs() {
+      document.querySelectorAll('[data-settings-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.settingsPanel !== state.settingsTab;
+      });
+      document.querySelectorAll('[data-action="settings-tab"]').forEach((tab) => {
+        tab.setAttribute('aria-selected', tab.dataset.tab === state.settingsTab ? 'true' : 'false');
+      });
+    }
+
+    function syncChrome() {
+      const found = currentSession();
+      const session = found.session;
+      const heroMode = state.view === 'conversation' && (!session || session.messages.length === 0);
+      placeComposer(heroMode);
+      viewConversation.hidden = state.view !== 'conversation';
+      viewPlugins.hidden = state.view !== 'plugins';
+      viewConversation.classList.toggle('is-chat', !heroMode && state.view === 'conversation');
+      hero.hidden = !heroMode;
+      transcript.hidden = heroMode || state.view !== 'conversation';
+      dock.hidden = heroMode || state.view !== 'conversation';
+      $('session-tools').hidden = state.view !== 'conversation';
+      if (state.view === 'plugins') {
+        $('workspace-kicker').textContent = '插件';
+        $('view-title').textContent = state.pluginTab === 'installed' ? '已安装' : '发现';
+      } else {
+        $('workspace-kicker').textContent = found.ws.name;
+        $('view-title').textContent = session ? session.title : '新会话';
+      }
+      composer.classList.toggle('is-hero', heroMode);
+      syncComposerWorkspace();
+      composerInput.placeholder = heroMode ? '描述你想要构建的内容' : '给智能体发消息';
+      const narrow = narrowQuery.matches;
+      app.classList.toggle('is-rail', !narrow && state.rail);
+      app.classList.toggle('is-drawer', narrow && state.drawer);
+      $('scrim').hidden = !(narrow && state.drawer);
+      const sideLabel = narrow
+        ? (state.drawer ? '关闭侧边栏' : '打开侧边栏')
+        : (state.rail ? '打开侧边栏' : '收起侧边栏');
+      $('side-toggle').setAttribute('aria-label', sideLabel);
+      $('top-toggle').setAttribute('aria-label', state.drawer ? '关闭侧边栏' : '打开侧边栏');
+      $('nav-settings').setAttribute('aria-current', $('settings').open ? 'page' : 'false');
+      syncUsage();
+      syncSend();
+    }
+
+    function renderAll(opts) {
+      renderSidebar();
+      renderTranscript(opts);
+      renderPlugins();
+      renderInspector();
+      syncChrome();
+    }
+
+    function grow() {
+      composerInput.style.height = 'auto';
+      composerInput.style.height = Math.min(composerInput.scrollHeight, 240) + 'px';
+    }
+
+    function createSession() {
+      const current = currentSession().session;
+      state.view = 'conversation';
+      state.inspector = null;
+      if (narrowQuery.matches) state.drawer = false;
+      if (current && current.messages.length === 0) {
+        state.activeSession = current.id;
+        renderAll();
+        composerInput.focus();
+        return;
+      }
+      const session = { id: uid(), title: '新会话', messages: [] };
+      currentWorkspace().sessions.unshift(session);
+      state.activeSession = session.id;
+      renderAll();
+      composerInput.focus();
+    }
+
+    function ensureSession() {
+      const current = currentSession().session;
+      if (current) return current;
+      const session = { id: uid(), title: '新会话', messages: [] };
+      currentWorkspace().sessions.unshift(session);
+      state.activeSession = session.id;
+      return session;
+    }
+
+    function finishTurn(session, text) {
+      if (!state.sending) return;
+      const quote = text.length > 80 ? text.slice(0, 80) + '…' : text;
+      const reply = state.access === 'full'
+        ? '这是本地模拟回复，没有连接 ' + state.model + '。权限是 ' + accessLabel() + '。你说：「' + quote + '」。'
+        : '这是本地模拟回复，没有连接 ' + state.model + '。当前权限是只读，不会描述写入文件。你说：「' + quote + '」。';
+      session.messages.push({ id: uid(), role: 'assistant', text: reply });
+      state.sending = false;
+      renderAll({ scroll: 'end' });
+      say('已写入本地回复');
+      composerInput.focus();
+    }
+
+    function send() {
+      const text = composerInput.value.trim();
+      if (!text || state.sending) return;
+      const session = ensureSession();
+      if (session.title === '新会话') {
+        const line = text.split('\n')[0].trim();
+        session.title = line.length > 24 ? line.slice(0, 24) + '…' : line;
+      }
+      const ws = currentWorkspace();
+      session.messages.push({ id: uid(), role: 'user', text: text });
+      composerInput.value = '';
+      grow();
+      state.sending = true;
+      renderAll({ scroll: 'end' });
+      const thinkId = uid();
+      later(() => {
+        if (!state.sending) return;
+        session.messages.push({
+          id: thinkId,
+          role: 'think',
+          open: true,
+          text: '工作区是「' + ws.name + '」。模型是 ' + state.model + '，权限是 ' + accessLabel() + '。这一轮不调用工具。'
+        });
+        session.messages.push({
+          id: uid(),
+          role: 'context',
+          open: false,
+          items: [{ name: '当前输入', state: '已新增' }],
+          note: '示例记录，没有读取工作区文件。'
+        });
+        renderAll({ scroll: 'end' });
+      }, 320);
+      later(() => finishTurn(session, text), 720);
+    }
+
+    function stopTurn() {
+      clearTimers();
+      if (!state.sending) return;
+      state.sending = false;
+      const session = currentSession().session;
+      if (session) session.messages.push({ id: uid(), role: 'note', text: '已停止' });
+      renderAll({ scroll: 'end' });
+      composerInput.focus();
+    }
+
+    function showDialog(dialog, opener) {
+      state.opener = opener || document.activeElement;
+      dialog.showModal();
+      const auto = dialog.querySelector('[data-autofocus]');
+      if (auto) auto.focus();
+    }
+
+    function openSettings(opener) {
+      syncModes();
+      syncBrowser();
+      syncNotify();
+      syncSettingsTabs();
+      showDialog($('settings'), opener);
+      syncChrome();
+    }
+
+    function parsePort(value) {
+      if (!/^\d+$/.test(value)) return null;
+      const n = Number(value);
+      if (n < 1 || n > 65535) return null;
+      return n;
+    }
+
+    document.addEventListener('click', (event) => {
+      const pop = $('version-pop');
+      if (pop && !pop.hidden && !event.target.closest('.version-anchor')) {
+        pop.hidden = true;
+        $('frame-version').setAttribute('aria-expanded', 'false');
+      }
+      const btn = event.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      if (action === 'skip') {
+        $('view-title').focus();
+        return;
+      }
+      if (action === 'toggle-sidebar') {
+        if (narrowQuery.matches) state.drawer = !state.drawer;
+        else state.rail = !state.rail;
+        syncChrome();
+        return;
+      }
+      if (action === 'close-drawer') {
+        state.drawer = false;
+        syncChrome();
+        $('top-toggle').focus();
+        return;
+      }
+      if (action === 'new-session') {
+        createSession();
+        return;
+      }
+      if (action === 'open-workspace') {
+        state.activeWorkspace = btn.dataset.workspace;
+        const ws = currentWorkspace();
+        state.activeSession = ws.sessions[0] ? ws.sessions[0].id : null;
+        state.view = 'conversation';
+        if (narrowQuery.matches) state.drawer = false;
+        renderAll({ scroll: 'end' });
+        return;
+      }
+      if (action === 'open-session') {
+        state.activeWorkspace = btn.dataset.workspace;
+        state.activeSession = btn.dataset.session;
+        state.view = 'conversation';
+        if (narrowQuery.matches) state.drawer = false;
+        renderAll({ scroll: 'end' });
+        return;
+      }
+      if (action === 'open-plugins') {
+        state.view = 'plugins';
+        state.inspector = null;
+        if (narrowQuery.matches) state.drawer = false;
+        renderAll();
+        return;
+      }
+      if (action === 'open-settings') {
+        openSettings(btn);
+        return;
+      }
+      if (action === 'close-settings') {
+        if (!$('lan-layer').hidden) {
+          $('lan-layer').hidden = true;
+          return;
+        }
+        $('settings').close();
+        return;
+      }
+      if (action === 'settings-tab') {
+        state.settingsTab = btn.dataset.tab;
+        syncSettingsTabs();
+        return;
+      }
+      if (action === 'goto-plugins') {
+        $('settings').close();
+        state.view = 'plugins';
+        state.pluginTab = 'discover';
+        state.pluginDetail = null;
+        renderAll();
+        return;
+      }
+      if (action === 'open-inspector') {
+        state.inspector = state.inspector === btn.dataset.inspector ? null : btn.dataset.inspector;
+        state.view = 'conversation';
+        renderInspector();
+        syncChrome();
+        if (state.inspector) $('inspector').querySelector('[data-action="close-inspector"]').focus();
+        return;
+      }
+      if (action === 'close-inspector') {
+        state.inspector = null;
+        renderInspector();
+        document.querySelector('[data-inspector="trajectory"]').focus();
+        return;
+      }
+      if (action === 'toggle-context' || action === 'toggle-think') {
+        const session = currentSession().session;
+        const message = session && session.messages.find((item) => item.id === btn.dataset.id);
+        if (message) message.open = !message.open;
+        renderTranscript();
+        return;
+      }
+      if (action === 'copy') {
+        const session = currentSession().session;
+        const message = session && session.messages.find((item) => item.id === btn.dataset.id);
+        if (!message) return;
+        const text = message.text;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => toast('没能写入剪贴板'));
+        } else toast('没能写入剪贴板');
+        return;
+      }
+      if (action === 'toggle-version') {
+        const pop = $('version-pop');
+        const open = pop.hidden;
+        pop.hidden = !open;
+        $('frame-version').setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) $('frame-check').focus();
+        return;
+      }
+      if (action === 'frame-check') {
+        const button = $('frame-check');
+        button.disabled = true;
+        button.textContent = '正在检查…';
+        $('frame-version-status').textContent = '';
+        window.setTimeout(() => {
+          button.disabled = false;
+          button.textContent = '检查更新';
+          $('frame-version-status').textContent = '没有发现新版本。当前 v2.0.18。';
+        }, 700);
+        return;
+      }
+      if (action === 'feedback') {
+        const id = btn.dataset.id;
+        state.feedback[id] = state.feedback[id] === btn.dataset.vote ? '' : btn.dataset.vote;
+        renderTranscript();
+        return;
+      }
+      if (action === 'attach') {
+        toast('这个原型不能添加文件');
+        return;
+      }
+      if (action === 'send-click') return;
+      if (action === 'plugin-tab') {
+        state.pluginTab = btn.dataset.tab;
+        state.pluginDetail = null;
+        renderPlugins();
+        syncChrome();
+        return;
+      }
+      if (action === 'plugin-open') {
+        state.pluginDetail = btn.dataset.plugin;
+        renderPlugins();
+        const back = document.querySelector('[data-action="plugin-back"]');
+        if (back) back.focus();
+        return;
+      }
+      if (action === 'plugin-back') {
+        const id = state.pluginDetail;
+        state.pluginDetail = null;
+        renderPlugins();
+        const opener = id && document.querySelector('[data-action="plugin-open"][data-plugin="' + CSS.escape(id) + '"]');
+        if (opener) opener.focus();
+        return;
+      }
+      if (action === 'ask-install') {
+        const plugin = pluginById(btn.dataset.plugin);
+        if (!plugin || plugin.installed) return;
+        state.pendingPlugin = plugin.id;
+        $('install-title').textContent = '安装「' + plugin.title + '」？';
+        $('install-body').textContent = plugin.title + ' ' + plugin.version + '，作者 ' + plugin.author + '。';
+        showDialog($('install-dialog'), btn);
+        return;
+      }
+      if (action === 'close-install') {
+        $('install-dialog').close();
+        return;
+      }
+      if (action === 'confirm-install') {
+        const plugin = pluginById(state.pendingPlugin);
+        state.opener = null;
+        $('install-dialog').close();
+        if (!plugin) return;
+        plugin.installed = true;
+        plugin.enabled = true;
+        state.pluginDetail = plugin.id;
+        state.pluginTab = 'installed';
+        renderPlugins();
+        const back = document.querySelector('[data-action="plugin-back"]');
+        if (back) back.focus();
+        toast('已安装');
+        say(plugin.title + ' 已安装');
+        return;
+      }
+      if (action === 'show-installed') {
+        state.pluginTab = 'installed';
+        state.pluginDetail = btn.dataset.plugin;
+        renderPlugins();
+        syncChrome();
+        return;
+      }
+      if (action === 'toggle-plugin') {
+        const plugin = pluginById(btn.dataset.plugin);
+        if (!plugin || plugin.bundled) return;
+        plugin.enabled = !plugin.enabled;
+        renderPlugins();
+        toast(plugin.enabled ? '已启用' : '已停用');
+        return;
+      }
+      if (action === 'lan-cancel') {
+        $('lan-layer').hidden = true;
+        $('lan-switch').focus();
+        return;
+      }
+      if (action === 'lan-confirm') {
+        state.lan = true;
+        $('lan-layer').hidden = true;
+        syncBrowser();
+        $('lan-switch').focus();
+        return;
+      }
+    });
+
+    sendBtn.addEventListener('click', () => {
+      if (state.sending) stopTurn();
+      else send();
+    });
+
+    composerInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        send();
+      }
+    });
+    composerInput.addEventListener('input', () => {
+      grow();
+      syncSend();
+    });
+
+    $('access').addEventListener('change', () => { state.access = $('access').value; });
+    $('composer-workspace').addEventListener('change', () => {
+      state.activeWorkspace = $('composer-workspace').value;
+      const ws = currentWorkspace();
+      state.activeSession = ws.sessions[0] ? ws.sessions[0].id : null;
+      state.view = 'conversation';
+      state.inspector = null;
+      renderAll();
+    });
+    $('model').addEventListener('change', () => { state.model = $('model').value; });
+
+    $('plugin-search').addEventListener('input', () => {
+      state.query = $('plugin-search').value;
+      state.pluginDetail = null;
+      renderPlugins();
+    });
+
+    document.querySelectorAll('input[name="window-mode"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (!input.checked) return;
+        state.mode = input.value;
+        syncModes();
+        syncBrowser();
+        const names = { compatibility: '兼容模式', extended: '扩展模式', advanced: '增强模式' };
+        $('mode-status').textContent = '已选中' + names[state.mode] + '。真实应用会在重启后生效，此原型只更新当前选择。';
+      });
+    });
+
+    document.querySelectorAll('[data-notify]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.notify;
+        state.notify[key] = !state.notify[key];
+        syncNotify();
+      });
+    });
+
+    $('browser-switch').addEventListener('click', () => {
+      if (state.mode !== 'compatibility') {
+        $('browser-notice').hidden = false;
+        return;
+      }
+      state.openBrowser = !state.openBrowser;
+      syncBrowser();
+    });
+
+    $('lan-switch').addEventListener('click', () => {
+      if (!state.openBrowser) return;
+      if (state.lan) {
+        state.lan = false;
+        syncBrowser();
+        return;
+      }
+      $('lan-layer').hidden = false;
+      $('lan-cancel').focus();
+    });
+
+    $('port').addEventListener('blur', () => {
+      const n = parsePort($('port').value.trim());
+      const error = $('port-error');
+      if (n === null) {
+        error.hidden = false;
+        error.textContent = '请输入 1 到 65535 之间的整数。';
+        $('port').setAttribute('aria-invalid', 'true');
+        return;
+      }
+      error.hidden = true;
+      error.textContent = '';
+      $('port').removeAttribute('aria-invalid');
+      if (n !== state.port) {
+        state.port = n;
+        $('port-status').textContent = '端口已记为 ' + n + '。真实应用会重启 Host，此原型只保存在页面里。';
+        syncBrowser();
+      }
+    });
+
+    $('check-updates').addEventListener('click', () => {
+      const button = $('check-updates');
+      button.disabled = true;
+      button.textContent = '正在检查…';
+      $('version-status').textContent = '';
+      window.setTimeout(() => {
+        button.disabled = false;
+        button.textContent = '检查更新';
+        $('version-status').textContent = '没有发现新版本。当前 Desktop 2.0.18，Harness 0.2.2-rc.5。';
+      }, 700);
+    });
+
+    $('log-level').addEventListener('change', () => {
+      $('log-status').textContent = '日志级别已记为 ' + $('log-level').value + '。只保存在这个页面里。';
+    });
+
+    $('settings').addEventListener('cancel', (event) => {
+      if (!$('lan-layer').hidden) {
+        event.preventDefault();
+        $('lan-layer').hidden = true;
+      }
+    });
+    $('settings').addEventListener('close', () => {
+      $('lan-layer').hidden = true;
+      if (state.opener && state.opener.isConnected) {
+        const back = state.opener;
+        state.opener = null;
+        back.focus();
+      }
+      syncChrome();
+    });
+    $('install-dialog').addEventListener('close', () => {
+      if (state.opener && state.opener.isConnected) {
+        const back = state.opener;
+        state.opener = null;
+        back.focus();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        createSession();
+      }
+      if (event.key === 'Escape' && !$('version-pop').hidden && !$('settings').open && !$('install-dialog').open) {
+        $('version-pop').hidden = true;
+        $('frame-version').setAttribute('aria-expanded', 'false');
+        $('frame-version').focus();
+        return;
+      }
+      if (event.key === 'Escape' && state.drawer && narrowQuery.matches && !$('settings').open && !$('install-dialog').open) {
+        state.drawer = false;
+        syncChrome();
+        $('top-toggle').focus();
+      }
+    });
+
+    narrowQuery.addEventListener('change', () => {
+      if (!narrowQuery.matches) state.drawer = false;
+      syncChrome();
+    });
+
+    renderAll();
+    grow();
+    composerInput.focus();
+  </script>
+</body>
+</html>

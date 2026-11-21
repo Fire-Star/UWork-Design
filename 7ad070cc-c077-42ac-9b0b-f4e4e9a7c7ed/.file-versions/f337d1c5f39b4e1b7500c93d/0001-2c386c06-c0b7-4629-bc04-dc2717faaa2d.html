@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DSH Desktop 管理台</title>
+  <style>
+    /* OD-LAYOUT-PRIMITIVES v1 — structure only: display, flex/grid, overflow, wrapping, ratio, geometry.
+       Put this @layer first; product CSS outside the layer wins ordinary layout rules.
+       Native hidden and closed-dialog states take precedence over component display rules. */
+    @layer od-layout {
+      [hidden]:not([hidden="until-found" i]) { display: none !important; }
+      dialog:not([open]) { display: none !important; }
+
+      :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+
+      .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+      .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+      .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+      .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+      .od-fill    { flex: 1 1 0; min-width: 0; }
+      .od-fixed   { flex: none; }
+      .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+
+      .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+      :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+      .od-tile { display: grid; grid-template-rows: auto 1fr; }
+      :where(.od-tile) > :where(*) { display: block; }
+
+      .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+      .od-media-cover { object-fit: cover; }
+
+      .od-icon { display: inline-block; inline-size: var(--od-icon-size, 1em); block-size: var(--od-icon-size, 1em); flex: none; }
+
+      .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+      .od-clamp-2 { -webkit-line-clamp: 2; }
+      .od-clamp-3 { -webkit-line-clamp: 3; }
+      .od-lines-2 { min-height: calc(2 * 1.4em); }
+      .od-nowrap  { white-space: nowrap; }
+      .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+
+      .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+      .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+      .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+                 padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+      .od-rail::-webkit-scrollbar { display: none; }
+      :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+      :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+
+      .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+      .od-touch  { min-width: 44px; min-height: 44px; }
+    }
+    :root [hidden]:where(:not([hidden="until-found" i])) { display: none; }
+    /* /OD-LAYOUT-PRIMITIVES v1 */
+
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-light.woff2") format("woff2");
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Montserrat";
+      src: url("assets/fonts/montserrat-medium.woff2") format("woff2");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #151517;
+      --sidebar: #1b1b1c;
+      --label: #f9fafb;
+      --secondary: #cfd3d6;
+      --caption: #a1a7ae;
+      --border: rgba(255, 255, 255, 0.12);
+      --border-soft: rgba(255, 255, 255, 0.06);
+      --hover: rgba(255, 255, 255, 0.08);
+      --active: #43454a;
+      --layer: #232324;
+      --ink: #f4f5f6;
+      --on-ink: #151517;
+      --info: #7aaaff;
+      --danger: #f25a5a;
+      --bar: #b7bdc7;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --brand: "Montserrat", var(--font);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--label);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; }
+    :focus { outline: none; }
+    :focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+    p, h1, h2 { margin: 0; }
+    h1 { font-size: 22px; line-height: 1.35; font-weight: 600; }
+    h2 { font-size: 18px; line-height: 1.4; font-weight: 600; }
+    .icon-16 { --od-icon-size: 16px; }
+    .icon-18 { --od-icon-size: 18px; }
+    .kicker { color: var(--caption); }
+    .vh {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .skip {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      z-index: 80;
+      transform: translateY(-140%);
+      background: var(--ink);
+      color: var(--on-ink);
+      border: 0;
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+    }
+    .skip:focus { transform: none; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      height: 100dvh;
+      min-height: 0;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+      min-height: 0;
+      padding: max(16px, env(safe-area-inset-top)) 12px 16px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border-soft);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 44px;
+      padding: 4px 8px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--label);
+      text-align: left;
+    }
+    .brand-mark { width: 28px; height: auto; display: block; }
+    .brand-name {
+      font-family: var(--brand);
+      font-weight: 500;
+      font-size: 16px;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+    .brand-sub { color: var(--caption); line-height: 1.4; }
+    .side-nav {
+      display: grid;
+      align-content: start;
+      gap: 4px;
+      min-height: 0;
+      overflow: auto;
+    }
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--label);
+      text-align: left;
+    }
+    .nav-btn[aria-current="page"] { background: var(--active); }
+    .side-note {
+      display: grid;
+      gap: 2px;
+      margin: 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-soft);
+      color: var(--caption);
+    }
+    .main { min-width: 0; min-height: 0; background: var(--bg); }
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 64px;
+      padding: max(8px, env(safe-area-inset-top)) 16px 8px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .lead { max-width: 68ch; color: var(--caption); }
+    .nav-toggle { display: none; }
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex: none;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--label);
+    }
+    .content {
+      padding: 24px 24px max(24px, env(safe-area-inset-bottom));
+      overflow-x: clip;
+    }
+    .view { display: grid; gap: 24px; align-content: start; }
+    .stats { --od-cols: 3; --od-gap: 12px; }
+    .stat-card, .panel, .empty {
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: var(--sidebar);
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .num {
+      font-size: clamp(28px, 3vw, 36px);
+      font-weight: 600;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+    }
+    .panel { display: grid; gap: 12px; }
+    .chart {
+      display: block;
+      width: 100%;
+      max-width: 560px;
+      height: auto;
+      font-family: var(--font);
+    }
+    .list {
+      display: grid;
+      border-radius: var(--radius-md);
+      background: var(--sidebar);
+      box-shadow: 0 0 0 1px var(--border-soft);
+    }
+    .record {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 16px;
+      padding: 16px;
+    }
+    .record + .record { box-shadow: inset 0 1px 0 var(--border-soft); }
+    .record-main { flex: 1 1 200px; }
+    .record-title { font-weight: 600; }
+    .facts { --od-gap: 16px; flex: 1 1 280px; }
+    .mini { min-width: 88px; }
+    .presence { display: flex; align-items: center; gap: 8px; }
+    .mark {
+      display: block;
+      width: 10px;
+      height: 10px;
+      flex: none;
+      border: 1.5px solid currentColor;
+      border-radius: 50%;
+    }
+    .presence.is-on { color: var(--info); }
+    .presence.is-on .mark { background: currentColor; }
+    .presence.is-off { color: var(--caption); }
+    .empty { display: grid; gap: 8px; }
+    .ws-block { display: grid; gap: 8px; }
+    .ws-block + .ws-block { margin-top: 8px; }
+    .session-list { display: grid; gap: 4px; }
+    .session-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--label);
+      text-align: left;
+    }
+    .text-input {
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #101012;
+      color: var(--label);
+    }
+    .text-input.is-invalid { border-color: var(--danger); }
+    .field-error { color: var(--danger); }
+    .filter, .tab, .primary, .secondary, .danger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .filter, .tab, .secondary {
+      background: transparent;
+      color: var(--label);
+      border-color: var(--border);
+    }
+    .filter[aria-pressed="true"], .tab[aria-selected="true"] {
+      background: var(--active);
+      border-color: var(--ink);
+      font-weight: 600;
+    }
+    .primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+    .danger { background: transparent; color: var(--danger); border-color: rgba(242, 90, 90, 0.7); }
+    .primary:disabled, .secondary:disabled, .danger:disabled, .filter:disabled {
+      background: #3a3b3e;
+      color: var(--secondary);
+      border-color: transparent;
+    }
+    .group { display: grid; gap: 12px; }
+    .choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 0 0 1px var(--border-soft);
+      color: var(--label);
+      cursor: pointer;
+    }
+    .choice.is-selected { box-shadow: 0 0 0 1px var(--ink); }
+    .choice input { margin-top: 4px; accent-color: var(--ink); }
+    .choice-title { font-weight: 600; }
+    .choice-body { max-width: 68ch; color: var(--secondary); }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 44px;
+    }
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex: none;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    .switch-track {
+      display: block;
+      width: 40px;
+      height: 22px;
+      position: relative;
+      border-radius: 999px;
+      background: var(--active);
+    }
+    .switch-thumb {
+      display: block;
+      width: 18px;
+      height: 18px;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      border-radius: 50%;
+      background: var(--ink);
+      transition: transform 180ms ease-out;
+    }
+    .switch[aria-checked="true"] .switch-track { background: var(--ink); }
+    .switch[aria-checked="true"] .switch-thumb { transform: translateX(18px); background: var(--on-ink); }
+    .switch:disabled .switch-track { background: #3a3b3e; }
+    .switch:disabled .switch-thumb { background: var(--secondary); transform: none; }
+    .switch[aria-checked="true"]:disabled .switch-thumb { transform: translateX(18px); }
+    dialog[open] {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      border: 0;
+      border-radius: var(--radius-md);
+      background: var(--layer);
+      color: var(--label);
+      box-shadow: 0 0 0 1px var(--border), 0 16px 40px rgba(0, 0, 0, 0.45);
+      max-height: min(720px, calc(100dvh - 32px));
+    }
+    #confirm-dialog { width: min(480px, calc(100vw - 32px)); }
+    #detail-dialog { width: min(640px, calc(100vw - 32px)); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.56); }
+    .dialog-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .dialog-body { display: grid; gap: 16px; min-height: 0; padding: 16px; overflow: auto; }
+    .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .od-field > span:last-child { overflow-wrap: anywhere; }
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: block;
+      padding: 0;
+      border: 0;
+      background: rgba(0, 0, 0, 0.56);
+    }
+    .form-stack { --od-gap: 24px; }
+    .toast {
+      position: fixed;
+      z-index: 45;
+      left: 50%;
+      bottom: 16px;
+      max-width: calc(100% - 32px);
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #2c2c2e;
+      color: var(--label);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    @media (hover: hover) {
+      .brand:hover, .nav-btn:hover, .icon-btn:hover, .session-btn:hover,
+      .filter:hover:not(:disabled), .tab:hover, .secondary:hover:not(:disabled) {
+        background: var(--hover);
+        color: var(--label);
+      }
+      .nav-btn[aria-current="page"]:hover, .filter[aria-pressed="true"]:hover, .tab[aria-selected="true"]:hover {
+        background: var(--active);
+        color: var(--label);
+      }
+      .primary:hover:not(:disabled) { background: #ffffff; color: var(--on-ink); }
+      .danger:hover:not(:disabled) { background: rgba(242, 90, 90, 0.12); color: var(--danger); }
+      .choice:hover { background: var(--hover); }
+    }
+    @media (max-width: 1023px) {
+      .app { grid-template-columns: minmax(0, 1fr); }
+      .nav-toggle { display: inline-flex; }
+      .sidebar {
+        position: fixed;
+        z-index: 30;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: min(280px, calc(100% - 48px));
+        transform: translateX(-105%);
+        transition: transform 200ms ease-out;
+      }
+      .sidebar.is-open { transform: translateX(0); }
+    }
+    @media (max-width: 767px) {
+      .content { padding: 16px 16px max(16px, env(safe-area-inset-bottom)); }
+      .stats { --od-cols: 1; }
+      .record { align-items: stretch; }
+      .record > .od-cluster { width: 100%; }
+      .session-btn { align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sidebar, .switch-thumb { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">跳到主要内容</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <button type="button" class="brand" data-action="nav" data-nav="overview">
+        <img class="brand-mark" src="assets/deepseek-mark.svg" alt="" width="1024" height="1024">
+        <span class="od-field">
+          <span class="brand-name">DSH Desktop</span>
+          <span class="brand-sub">管理台</span>
+        </span>
+      </button>
+      <nav class="side-nav" id="side-nav" aria-label="管理台">
+        <button type="button" class="nav-btn" data-action="nav" data-nav="overview" aria-current="page">
+          <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="13" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>
+          <span>总览</span>
+        </button>
+        <button type="button" class="nav-btn" data-action="nav" data-nav="clients" aria-current="false">
+          <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 20h8M12 16v4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <span>客户端</span>
+        </button>
+        <button type="button" class="nav-btn" data-action="nav" data-nav="workspaces" aria-current="false">
+          <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2.5Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+          <span>工作区与会话</span>
+        </button>
+        <button type="button" class="nav-btn" data-action="nav" data-nav="models" aria-current="false">
+          <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M3 12l9 5 9-5M3 16l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+          <span>模型与权限</span>
+        </button>
+        <button type="button" class="nav-btn" data-action="nav" data-nav="plugins" aria-current="false">
+          <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8V4M16 8V4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M7 8h10v5a5 5 0 0 1-10 0V8Z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M12 18v2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <span>插件</span>
+        </button>
+        <button type="button" class="nav-btn" data-action="nav" data-nav="policy" aria-current="false">
+          <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="9" cy="8" r="2.25" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="15" cy="16" r="2.25" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>
+          <span>桌面策略</span>
+        </button>
+      </nav>
+      <p class="side-note">
+        <span class="od-nowrap">v2.0.18</span>
+        <span>页面内示例</span>
+      </p>
+    </aside>
+
+    <div class="main od-screen" id="main">
+      <header class="topbar">
+        <button type="button" class="icon-btn nav-toggle" id="nav-toggle" data-action="nav-toggle" aria-controls="sidebar" aria-expanded="false">
+          <svg class="od-icon icon-18" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+          <span class="vh">打开导航</span>
+        </button>
+        <div class="od-field od-fill">
+          <h1 id="view-title" tabindex="-1">总览</h1>
+          <p class="lead" id="view-lead">在线情况、版本和插件启用都从本页示例汇总。在别的分页改动后，这些数字会一起变。</p>
+        </div>
+      </header>
+      <div class="content od-scroll">
+        <noscript><p class="kicker">这个管理台需要在浏览器里运行脚本。页面不会连接外部服务。</p></noscript>
+
+        <section class="view" id="view-overview" data-view="overview">
+          <div class="od-grid stats">
+            <div class="stat-card od-stat">
+              <span class="num od-nowrap" id="stat-online">2</span>
+              <span>在线客户端</span>
+              <span class="kicker" id="stat-online-help">共 3 台，1 台离线。</span>
+            </div>
+            <div class="stat-card od-stat">
+              <span class="num od-nowrap" id="stat-sessions">1</span>
+              <span>进行中的会话</span>
+              <span class="kicker" id="stat-sessions-help">来自工作区示例里标成进行中的会话。</span>
+            </div>
+            <div class="stat-card od-stat">
+              <span class="num od-nowrap" id="stat-plugins">2</span>
+              <span>已启用插件</span>
+              <span class="kicker" id="stat-plugins-help">已安装 2 个，已上架 3 个。</span>
+            </div>
+          </div>
+          <section class="panel" aria-labelledby="chart-heading">
+            <h2 id="chart-heading">版本分布</h2>
+            <p class="kicker">按本页客户端示例计数。蓝色条是当前发布版本 v2.0.18。</p>
+            <svg id="version-chart" class="chart" viewBox="0 0 560 112" width="560" height="112" role="img" aria-labelledby="chart-caption"></svg>
+            <p class="kicker" id="chart-caption">v2.0.18 有 2 台，v2.0.17 有 1 台。尚未检查 1 台，可更新 0 台。蓝色条是当前发布版本 v2.0.18。</p>
+          </section>
+        </section>
+
+        <section class="view" id="view-clients" data-view="clients" hidden>
+          <div class="od-field">
+            <label for="client-search">搜索客户端</label>
+            <div class="od-row">
+              <input id="client-search" class="text-input od-fill" type="text" autocomplete="off" spellcheck="false">
+              <button type="button" class="secondary" id="client-clear" data-action="client-clear" hidden>清空筛选</button>
+            </div>
+          </div>
+          <div class="od-cluster" role="group" aria-label="按状态筛选">
+            <button type="button" class="filter" id="client-filter-all" data-action="client-filter" data-value="all" aria-pressed="true">全部</button>
+            <button type="button" class="filter" id="client-filter-online" data-action="client-filter" data-value="online" aria-pressed="false">在线</button>
+            <button type="button" class="filter" id="client-filter-offline" data-action="client-filter" data-value="offline" aria-pressed="false">离线</button>
+            <button type="button" class="filter" id="client-filter-unchecked" data-action="client-filter" data-value="unchecked" aria-pressed="false">待检查</button>
+          </div>
+          <div id="client-list" class="list" role="list"></div>
+          <div id="client-empty" class="empty" hidden>
+            <p id="client-empty-title"></p>
+            <p class="kicker" id="client-empty-next"></p>
+          </div>
+        </section>
+
+        <section class="view" id="view-workspaces" data-view="workspaces" hidden>
+          <div class="od-field">
+            <label for="ws-search">搜索工作区或会话</label>
+            <div class="od-row">
+              <input id="ws-search" class="text-input od-fill" type="text" autocomplete="off" spellcheck="false">
+              <button type="button" class="secondary" id="ws-clear" data-action="ws-clear" hidden>清空搜索</button>
+            </div>
+          </div>
+          <div id="ws-list"></div>
+          <div id="ws-empty" class="empty" hidden>
+            <p id="ws-empty-title"></p>
+            <p class="kicker">换个关键词，或清空搜索后查看全部示例。</p>
+          </div>
+        </section>
+
+        <section class="view" id="view-models" data-view="models" hidden>
+          <section class="group" aria-labelledby="model-heading">
+            <h2 id="model-heading">模型</h2>
+            <p class="kicker">至少保留一个启用的模型。停用当前默认项时，默认会改到下一个仍启用的模型。</p>
+            <div id="model-list" class="list"></div>
+          </section>
+          <section class="group" aria-labelledby="permission-heading">
+            <h2 id="permission-heading">权限</h2>
+            <p class="kicker">Full access 对应桌面端输入舱里的不限制。只读是同一组里的另一项。停用前会确认。</p>
+            <div id="permission-list" class="list"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-plugins" data-view="plugins" hidden>
+          <div class="od-cluster" id="plugin-tabs" role="tablist" aria-label="插件范围">
+            <button type="button" class="tab" id="tab-discover" role="tab" aria-selected="true" aria-controls="plugin-panel" tabindex="0" data-action="plugin-tab" data-value="discover">发现</button>
+            <button type="button" class="tab" id="tab-installed" role="tab" aria-selected="false" aria-controls="plugin-panel" tabindex="-1" data-action="plugin-tab" data-value="installed">已安装</button>
+          </div>
+          <div class="od-field">
+            <label for="plugin-search">搜索插件</label>
+            <div class="od-row">
+              <input id="plugin-search" class="text-input od-fill" type="text" autocomplete="off" spellcheck="false">
+              <button type="button" class="secondary" id="plugin-clear" data-action="plugin-clear" hidden>清空搜索</button>
+            </div>
+          </div>
+          <div id="plugin-panel" role="tabpanel" aria-labelledby="tab-discover">
+            <div id="plugin-list" class="list"></div>
+            <div id="plugin-empty" class="empty" hidden>
+              <p id="plugin-empty-title"></p>
+              <p class="kicker" id="plugin-empty-next"></p>
+              <div class="od-cluster">
+                <button type="button" class="secondary" id="plugin-goto-discover" data-action="plugin-tab" data-value="discover" hidden>去发现</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-policy" data-view="policy" hidden>
+          <form id="policy-form" novalidate>
+            <div class="od-stack form-stack">
+              <section class="group" aria-labelledby="mode-title">
+                <h2 id="mode-title">窗口模式</h2>
+                <p class="kicker">选择客户端使用的窗口布局。这里只记录策略。</p>
+                <div class="od-stack">
+                  <label class="choice is-selected">
+                    <input type="radio" name="window-mode" value="compatibility" checked>
+                    <span class="od-field od-fill">
+                      <span class="choice-title">兼容模式</span>
+                      <span class="choice-body">使用官方客户端布局，顶部提供独立的桌面控制栏。兼容性最好。</span>
+                    </span>
+                    <span class="choice-status od-nowrap">已选择</span>
+                  </label>
+                  <label class="choice">
+                    <input type="radio" name="window-mode" value="extended">
+                    <span class="od-field od-fill">
+                      <span class="choice-title">扩展模式</span>
+                      <span class="choice-body">在官方内容区域外提供独立顶栏和侧边栏，可搭配玻璃背景。</span>
+                    </span>
+                    <span class="choice-status od-nowrap"></span>
+                  </label>
+                  <label class="choice">
+                    <input type="radio" name="window-mode" value="advanced">
+                    <span class="od-field od-fill">
+                      <span class="choice-title">增强模式</span>
+                      <span class="choice-body">使用桌面专用布局，调整侧边栏、内容面板和窗口操作方式。</span>
+                    </span>
+                    <span class="choice-status od-nowrap"></span>
+                  </label>
+                </div>
+              </section>
+
+              <section class="group" aria-labelledby="port-title">
+                <h2 id="port-title">本地端口</h2>
+                <div class="od-field">
+                  <label for="port">本地端口（必填）</label>
+                  <input id="port" class="text-input" inputmode="numeric" autocomplete="off" spellcheck="false" value="0" aria-describedby="port-help">
+                  <p class="kicker" id="port-help">0 表示由系统分配。也可以填 1024 到 65535。保存后只留在这个页面，不会重启本机服务。</p>
+                  <p class="field-error" id="port-error" role="alert" hidden></p>
+                </div>
+              </section>
+
+              <section class="group" aria-labelledby="lan-title">
+                <h2 id="lan-title">局域网</h2>
+                <p class="kicker">允许后，同一局域网里持有链接的人可以操作对应电脑。打开前需要确认。这里不会真的打开端口。</p>
+                <div class="setting-row">
+                  <span id="lan-label">允许局域网访问</span>
+                  <button type="button" class="switch" id="lan-switch" data-action="switch" data-key="lan" role="switch" aria-checked="false" aria-labelledby="lan-label">
+                    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="group" aria-labelledby="notify-title">
+                <h2 id="notify-title">桌面通知</h2>
+                <p class="kicker">通知不会带上会话内容。开关只留在这个页面。</p>
+                <div class="setting-row">
+                  <span id="notify-enabled-label">启用桌面通知</span>
+                  <button type="button" class="switch" id="notify-enabled" data-action="switch" data-key="notify" role="switch" aria-checked="true" aria-labelledby="notify-enabled-label">
+                    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                  </button>
+                </div>
+                <p class="kicker" id="notify-note" hidden>桌面通知关着时，下面四项不会生效，但各自的开关会被记住。</p>
+                <div class="setting-row">
+                  <span id="notify-turn-done-label">本轮任务完成</span>
+                  <button type="button" class="switch" id="notify-turn-done" data-action="switch" data-key="notify-child" role="switch" aria-checked="true" aria-labelledby="notify-turn-done-label">
+                    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                  </button>
+                </div>
+                <div class="setting-row">
+                  <span id="notify-turn-fail-label">本轮任务失败</span>
+                  <button type="button" class="switch" id="notify-turn-fail" data-action="switch" data-key="notify-child" role="switch" aria-checked="true" aria-labelledby="notify-turn-fail-label">
+                    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                  </button>
+                </div>
+                <div class="setting-row">
+                  <span id="notify-job-done-label">后台任务完成</span>
+                  <button type="button" class="switch" id="notify-job-done" data-action="switch" data-key="notify-child" role="switch" aria-checked="true" aria-labelledby="notify-job-done-label">
+                    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                  </button>
+                </div>
+                <div class="setting-row">
+                  <span id="notify-job-fail-label">后台任务失败</span>
+                  <button type="button" class="switch" id="notify-job-fail" data-action="switch" data-key="notify-child" role="switch" aria-checked="true" aria-labelledby="notify-job-fail-label">
+                    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                  </button>
+                </div>
+              </section>
+
+              <div class="od-stack">
+                <div class="od-cluster">
+                  <button type="button" class="primary" id="policy-save" data-action="save-policy">保存策略</button>
+                </div>
+                <p class="kicker" id="policy-status" role="status"></p>
+              </div>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" class="scrim" id="nav-scrim" data-action="close-nav" hidden aria-label="关闭导航"></button>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+    <div class="dialog-head">
+      <h2 id="confirm-title">确认</h2>
+    </div>
+    <div class="dialog-body">
+      <p id="confirm-body"></p>
+      <div class="dialog-actions">
+        <button type="button" class="secondary" id="confirm-cancel" data-action="cancel-confirm">取消</button>
+        <button type="button" class="danger" id="confirm-ok">停用</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="detail-dialog" aria-labelledby="detail-title">
+    <div class="dialog-head">
+      <h2 id="detail-title"></h2>
+      <button type="button" class="icon-btn" data-action="close-detail" aria-label="关闭">
+        <svg class="od-icon icon-16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="dialog-body od-scroll" id="detail-body"></div>
+  </dialog>
+
+  <p class="toast" id="toast" hidden role="status"></p>
+
+  <script>
+    const CURRENT = '2.0.18';
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const MODE_LABEL = { compatibility: '兼容模式', extended: '扩展模式', advanced: '增强模式' };
+    const VIEW = {
+      overview: ['总览', '在线情况、版本和插件启用都从本页示例汇总。在别的分页改动后，这些数字会一起变。'],
+      clients: ['客户端', '版本、最近在线和更新检查都是示例。检查更新不会访问网络。'],
+      workspaces: ['工作区与会话', '名称沿用桌面端里的工作区和会话。可以搜索，并打开查看说明。'],
+      models: ['模型与权限', '启用、停用和默认项只改本页。停用前需要确认。'],
+      plugins: ['插件', '可以搜索、查看详情、上架和启用。不会下载或安装真实插件。'],
+      policy: ['桌面策略', '保存前会检查端口。结果只留在这个页面，不会改本机端口或通知设置。']
+    };
+
+    const state = {
+      view: 'overview',
+      navOpen: false,
+      clientQuery: '',
+      clientFilter: 'all',
+      wsQuery: '',
+      pluginQuery: '',
+      pluginTab: 'discover',
+      detailOpenerId: '',
+      portTouched: false,
+      savedSnapshot: '',
+      savedMessage: '',
+      clients: [
+        { id: 'local', host: '本机', workspace: 'dsh', version: '2.0.18', online: true, seen: '刚刚', check: 'current', checking: false },
+        { id: 'aa', host: 'Agents-Anywhere', workspace: 'Agents-Anywhere', version: '2.0.18', online: true, seen: '8 分钟前', check: 'current', checking: false },
+        { id: 'next', host: 'dsh-desktop-next', workspace: 'dsh-desktop-next', version: '2.0.17', online: false, seen: '昨天 18:40', check: 'unchecked', checking: false }
+      ],
+      workspaces: [
+        {
+          id: 'dsh',
+          name: 'dsh',
+          sessions: [
+            { id: 'new', title: '新会话', status: '空闲', updated: '刚刚', turns: 0, note: '还没有消息。桌面端里新建会话时会用这个标题。' },
+            { id: 'hi', title: '你好', status: '进行中', updated: '刚刚', turns: 1, note: '用户说了你好。本地示例回复，没有连接 DeepSeek。' },
+            { id: 'readme', title: '看 README', status: '已结束', updated: '1 小时前', turns: 1, note: '问了桌面端入口在哪。示例里没有打开仓库。' }
+          ]
+        },
+        {
+          id: 'aa',
+          name: 'Agents-Anywhere',
+          sessions: [
+            { id: 'phone', title: '手机连接', status: '空闲', updated: '昨天', turns: 1, note: '说明如何在手机上打开这台电脑上的 DSH。不会生成访问链接。' }
+          ]
+        },
+        { id: 'next', name: 'dsh-desktop-next', sessions: [] }
+      ],
+      models: [
+        { id: 'flash-high', name: 'DeepSeek-V4-Flash High', enabled: true, isDefault: true, note: '桌面端当前示例里选中的模型。' },
+        { id: 'flash', name: 'DeepSeek-V4-Flash', enabled: true, isDefault: false, note: '同一系列的标准档。' },
+        { id: 'v3', name: 'DeepSeek-V3', enabled: true, isDefault: false, note: '上一代对话模型。' }
+      ],
+      permissions: [
+        { id: 'full', name: 'Full access', enabled: true, isDefault: true, note: '不限制工具和文件。对应桌面端输入舱里的 Full access。' },
+        { id: 'readonly', name: '只读', enabled: true, isDefault: false, note: '只读取工作区，不写入。和 Full access 是同一组权限。' }
+      ],
+      plugins: [
+        {
+          id: 'market-bundle',
+          title: '自定义插件索引',
+          packageName: '@deepseek-ai/dsh-experimental-plugin-market-bundle',
+          description: '在插件页添加“发现”标签页，从你添加的插件索引中浏览和安装插件。',
+          author: 'DeepSeek',
+          version: '0.2.2-rc.5',
+          source: '随 DSH 提供',
+          installed: true,
+          listed: true,
+          enabled: true
+        },
+        {
+          id: 'community',
+          title: 'dsh-community-market',
+          packageName: 'dsh-community-market',
+          description: 'DSH Desktop 内置的开放插件市场，支持添加和选择自定义插件数据源。',
+          author: 'DSH Desktop',
+          version: '2.0.18',
+          source: '桌面端',
+          installed: true,
+          listed: true,
+          enabled: true
+        },
+        {
+          id: 'oar',
+          title: 'OAR 子智能体',
+          packageName: '@deepseek-ai/dsh-experimental-subagent-oar',
+          description: '通过 OAR 向已安装的编程智能体委派任务，并提供 Codex 和 Claude Code 配置。',
+          author: 'DeepSeek',
+          version: '0.2.2-rc.5',
+          source: '实验性',
+          installed: false,
+          listed: false,
+          enabled: false
+        },
+        {
+          id: 'aa',
+          title: 'Agents-Anywhere',
+          packageName: 'agents-anywhere',
+          description: '通过 Agents-Anywhere，在手机或浏览器中访问这台电脑上的 DSH。',
+          author: 'DSH Desktop',
+          version: '2.0.18',
+          source: '桌面端',
+          installed: false,
+          listed: true,
+          enabled: false
+        }
+      ]
+    };
+
+    const narrow = window.matchMedia('(max-width: 1023px)');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const confirmDialog = document.getElementById('confirm-dialog');
+    const detailDialog = document.getElementById('detail-dialog');
+    const policyForm = document.getElementById('policy-form');
+    let confirmRun = null;
+    let confirmOpener = null;
+    let saveLock = false;
+
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    function isShown(el) {
+      return !!(el && el.isConnected && !el.disabled && !el.closest('[hidden]'));
+    }
+
+    function focusShown(id) {
+      const el = document.getElementById(id);
+      if (isShown(el)) el.focus();
+    }
+
+    function toast(text) {
+      const node = document.getElementById('toast');
+      node.textContent = text;
+      node.hidden = false;
+      window.clearTimeout(toast._t);
+      toast._t = window.setTimeout(() => { node.hidden = true; }, 2400);
+    }
+
+    function svgEl(name, attrs) {
+      const el = document.createElementNS(SVG_NS, name);
+      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+      return el;
+    }
+
+    function checkLabel(client) {
+      if (client.checking) return '正在检查';
+      if (client.check === 'current') return '已是当前版本';
+      if (client.check === 'available') return '可更新至 v' + CURRENT;
+      return '尚未检查';
+    }
+
+    function clientVisible(client) {
+      const q = state.clientQuery.trim().toLowerCase();
+      const textHit = !q || [client.host, client.workspace, client.version, 'v' + client.version, checkLabel(client), client.online ? '在线' : '离线']
+        .some((part) => String(part).toLowerCase().includes(q));
+      const filterHit = state.clientFilter === 'all'
+        || (state.clientFilter === 'online' && client.online)
+        || (state.clientFilter === 'offline' && !client.online)
+        || (state.clientFilter === 'unchecked' && client.check === 'unchecked');
+      return textHit && filterHit;
+    }
+
+    function checked(id) {
+      return document.getElementById(id).getAttribute('aria-checked') === 'true';
+    }
+
+    function readPolicy() {
+      const mode = policyForm.querySelector('input[name="window-mode"]:checked');
+      return {
+        mode: mode ? mode.value : 'compatibility',
+        port: document.getElementById('port').value.trim(),
+        lan: checked('lan-switch'),
+        notify: {
+          enabled: checked('notify-enabled'),
+          turnDone: checked('notify-turn-done'),
+          turnFail: checked('notify-turn-fail'),
+          jobDone: checked('notify-job-done'),
+          jobFail: checked('notify-job-fail')
+        }
+      };
+    }
+
+    function snapshot() { return JSON.stringify(readPolicy()); }
+
+    function markDirty() {
+      const status = document.getElementById('policy-status');
+      status.textContent = snapshot() === state.savedSnapshot ? state.savedMessage : '有未保存的修改。';
+    }
+
+    function portErrorMessage(raw) {
+      if (raw === '') return '请填写端口。填 0 表示由系统分配。';
+      if (!/^(0|[1-9]\d*)$/.test(raw)) return '端口需要是不带前导零的整数。例如 0 或 43120。';
+      const value = Number(raw);
+      if (value > 65535) return '端口不能大于 65535。请改成 0，或 1024 到 65535。';
+      if (value > 0 && value < 1024) return '1 到 1023 是系统保留端口。请改成 0，或 1024 到 65535。';
+      return '';
+    }
+
+    function validatePort(show) {
+      const input = document.getElementById('port');
+      const node = document.getElementById('port-error');
+      const error = portErrorMessage(input.value.trim());
+      const visible = show && error !== '';
+      node.hidden = !visible;
+      node.textContent = visible ? error : '';
+      input.classList.toggle('is-invalid', visible);
+      input.setAttribute('aria-invalid', visible ? 'true' : 'false');
+      input.setAttribute('aria-describedby', visible ? 'port-help port-error' : 'port-help');
+      return error;
+    }
+
+    function syncModeStyles() {
+      document.querySelectorAll('.choice').forEach((label) => {
+        const input = label.querySelector('input');
+        const status = label.querySelector('.choice-status');
+        const on = !!(input && input.checked);
+        label.classList.toggle('is-selected', on);
+        if (status) status.textContent = on ? '已选择' : '';
+      });
+    }
+
+    function syncNotifyChildren() {
+      const on = checked('notify-enabled');
+      ['notify-turn-done', 'notify-turn-fail', 'notify-job-done', 'notify-job-fail'].forEach((id) => {
+        document.getElementById(id).disabled = !on;
+      });
+      document.getElementById('notify-note').hidden = on;
+    }
+
+    function savePolicy() {
+      if (saveLock) return;
+      saveLock = true;
+      state.portTouched = true;
+      const error = validatePort(true);
+      if (error) {
+        document.getElementById('port').focus();
+        saveLock = false;
+        return;
+      }
+      const policy = readPolicy();
+      state.savedSnapshot = snapshot();
+      const lanText = policy.lan ? '已允许局域网' : '未允许局域网';
+      const notifyText = policy.notify.enabled ? '桌面通知开启' : '桌面通知关闭';
+      state.savedMessage = '已保存在这个页面里：' + MODE_LABEL[policy.mode] + '，端口 ' + policy.port + '，' + lanText + '，' + notifyText + '。没有改本机设置。';
+      document.getElementById('policy-status').textContent = state.savedMessage;
+      saveLock = false;
+    }
+
+    function renderChart() {
+      const svg = document.getElementById('version-chart');
+      const caption = document.getElementById('chart-caption');
+      const counts = new Map();
+      state.clients.forEach((client) => {
+        counts.set(client.version, (counts.get(client.version) || 0) + 1);
+      });
+      const rows = [...counts.entries()].sort((a, b) => b[0].localeCompare(a[0], undefined, { numeric: true }));
+      const sentence = rows.length
+        ? rows.map(([version, count]) => 'v' + version + ' 有 ' + count + ' 台').join('，') + '。'
+        : '这个页面里还没有客户端。';
+      const unchecked = state.clients.filter((client) => client.check === 'unchecked').length;
+      const available = state.clients.filter((client) => client.check === 'available').length;
+      caption.textContent = sentence + '尚未检查 ' + unchecked + ' 台，可更新 ' + available + ' 台。蓝色条是当前发布版本 v' + CURRENT + '。';
+      svg.replaceChildren();
+      const title = svgEl('title', { id: 'version-chart-title' });
+      title.textContent = '版本分布。' + caption.textContent;
+      svg.append(title);
+      svg.hidden = rows.length === 0;
+      if (!rows.length) return;
+      const width = 560;
+      const rowH = 48;
+      const height = 16 + rows.length * rowH;
+      svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+      svg.setAttribute('width', String(width));
+      svg.setAttribute('height', String(height));
+      const barX = 120;
+      const barMax = 300;
+      const max = Math.max(...rows.map((row) => row[1]));
+      rows.forEach(([version, count], index) => {
+        const y = 16 + index * rowH;
+        const label = svgEl('text', { x: '0', y: String(y + 22), fill: '#f9fafb', 'font-size': '16' });
+        label.textContent = 'v' + version;
+        const barW = Math.max(8, Math.round((count / max) * barMax));
+        const rect = svgEl('rect', {
+          x: String(barX),
+          y: String(y + 6),
+          width: String(barW),
+          height: '20',
+          rx: '4',
+          fill: version === CURRENT ? '#4176e6' : '#b7bdc7'
+        });
+        const num = svgEl('text', { x: String(barX + barW + 12), y: String(y + 22), fill: '#f9fafb', 'font-size': '16' });
+        num.textContent = count + ' 台';
+        svg.append(label, rect, num);
+      });
+    }
+
+    function renderOverview() {
+      const online = state.clients.filter((client) => client.online).length;
+      const total = state.clients.length;
+      const offline = total - online;
+      document.getElementById('stat-online').textContent = String(online);
+      document.getElementById('stat-online-help').textContent = total === 0
+        ? '这个页面里还没有客户端。'
+        : '共 ' + total + ' 台，' + offline + ' 台离线。';
+      const active = state.workspaces.reduce((sum, ws) => sum + ws.sessions.filter((session) => session.status === '进行中').length, 0);
+      document.getElementById('stat-sessions').textContent = String(active);
+      document.getElementById('stat-sessions-help').textContent = active === 0
+        ? '现在没有进行中的会话。'
+        : '来自工作区示例里标成进行中的会话。';
+      const enabled = state.plugins.filter((plugin) => plugin.enabled).length;
+      const installed = state.plugins.filter((plugin) => plugin.installed).length;
+      const listed = state.plugins.filter((plugin) => plugin.listed).length;
+      document.getElementById('stat-plugins').textContent = String(enabled);
+      document.getElementById('stat-plugins-help').textContent = '已安装 ' + installed + ' 个，已上架 ' + listed + ' 个。';
+      renderChart();
+    }
+
+    function clientMarkup(client) {
+      return '<article class="record" id="client-' + esc(client.id) + '" tabindex="-1" role="listitem">'
+        + '<div class="od-field od-fill record-main">'
+        + '<span class="record-title">' + esc(client.host) + '</span>'
+        + '<span class="presence ' + (client.online ? 'is-on' : 'is-off') + '"><span class="mark" aria-hidden="true"></span><span class="od-nowrap">' + (client.online ? '在线' : '离线') + '</span></span>'
+        + '<span class="kicker">工作区 ' + esc(client.workspace) + '</span>'
+        + '</div>'
+        + '<div class="od-cluster facts">'
+        + '<div class="mini od-stat"><span class="od-nowrap">v' + esc(client.version) + '</span><span class="kicker">版本</span></div>'
+        + '<div class="mini od-stat"><span class="od-nowrap">' + esc(client.seen) + '</span><span class="kicker">最近在线</span></div>'
+        + '<div class="mini od-stat"><span>' + esc(checkLabel(client)) + '</span><span class="kicker">更新检查</span></div>'
+        + '</div>'
+        + '<button type="button" class="secondary" id="check-' + esc(client.id) + '" data-action="check-client" data-id="' + esc(client.id) + '"' + (client.checking ? ' disabled aria-busy="true"' : '') + '>' + (client.checking ? '正在检查' : '检查更新') + '</button>'
+        + '</article>';
+    }
+
+    function renderClients() {
+      const q = state.clientQuery.trim();
+      const items = state.clients.filter(clientVisible);
+      const list = document.getElementById('client-list');
+      const empty = document.getElementById('client-empty');
+      document.getElementById('client-clear').hidden = !(q || state.clientFilter !== 'all');
+      document.querySelectorAll('[data-action="client-filter"]').forEach((btn) => {
+        btn.setAttribute('aria-pressed', String(btn.dataset.value === state.clientFilter));
+      });
+      list.hidden = items.length === 0;
+      empty.hidden = items.length !== 0;
+      if (!items.length) {
+        document.getElementById('client-empty-title').textContent = q ? '没有匹配「' + q + '」的客户端。' : '没有符合当前筛选的客户端。';
+        document.getElementById('client-empty-next').textContent = '清空筛选后会回到全部示例。';
+        list.replaceChildren();
+        return;
+      }
+      list.innerHTML = items.map(clientMarkup).join('');
+    }
+
+    function focusClientAfter(id) {
+      if (isShown(document.getElementById('check-' + id))) {
+        document.getElementById('check-' + id).focus();
+        return;
+      }
+      if (isShown(document.getElementById('client-clear'))) {
+        document.getElementById('client-clear').focus();
+        return;
+      }
+      focusShown('client-filter-all');
+    }
+
+    function startCheck(id) {
+      const client = state.clients.find((item) => item.id === id);
+      if (!client || client.checking) return;
+      client.checking = true;
+      renderClients();
+      renderOverview();
+      focusShown('client-' + id);
+      toast('正在检查' + client.host + '。这是页面内模拟。');
+      window.setTimeout(() => {
+        client.checking = false;
+        client.check = client.version === CURRENT ? 'current' : 'available';
+        renderClients();
+        renderOverview();
+        toast(client.host + '：' + (client.check === 'current' ? '已是当前版本' : '可更新至 v' + CURRENT) + '。没有连接更新服务。');
+        focusClientAfter(id);
+      }, reducedMotion.matches ? 0 : 280);
+    }
+
+    function workspaceBlocks() {
+      const q = state.wsQuery.trim().toLowerCase();
+      return state.workspaces.map((ws) => {
+        const nameHit = !q || ws.name.toLowerCase().includes(q);
+        const sessions = ws.sessions.filter((session) => nameHit || session.title.toLowerCase().includes(q) || session.status.toLowerCase().includes(q));
+        if (q && !nameHit && sessions.length === 0) return null;
+        return { ws, sessions };
+      }).filter(Boolean);
+    }
+
+    function workspaceMarkup(block) {
+      const ws = block.ws;
+      const sessions = block.sessions;
+      const q = state.wsQuery.trim();
+      const count = q ? '匹配 ' + sessions.length + ' 个' : sessions.length + ' 个会话';
+      const items = sessions.length
+        ? '<div class="session-list">' + sessions.map((session) => (
+          '<button type="button" class="session-btn" id="session-' + esc(session.id) + '" data-action="session-detail" data-ws="' + esc(ws.id) + '" data-id="' + esc(session.id) + '" aria-haspopup="dialog">'
+          + '<span class="od-fill">' + esc(session.title) + '</span>'
+          + '<span class="od-nowrap">' + esc(session.status) + '</span>'
+          + '<span class="od-nowrap">' + esc(session.updated) + '</span>'
+          + '</button>'
+        )).join('') + '</div>'
+        : '<p class="kicker">这个工作区在示例里还没有会话。可以去 dsh 查看「你好」。</p>';
+      return '<section class="ws-block" id="ws-' + esc(ws.id) + '" aria-labelledby="ws-label-' + esc(ws.id) + '">'
+        + '<div class="od-row"><h2 id="ws-label-' + esc(ws.id) + '" class="od-fill">' + esc(ws.name) + '</h2><span class="kicker od-nowrap">' + esc(count) + '</span></div>'
+        + items
+        + '</section>';
+    }
+
+    function renderWorkspaces() {
+      const blocks = workspaceBlocks();
+      const list = document.getElementById('ws-list');
+      const empty = document.getElementById('ws-empty');
+      document.getElementById('ws-clear').hidden = state.wsQuery.trim() === '';
+      list.hidden = blocks.length === 0;
+      empty.hidden = blocks.length !== 0;
+      if (!blocks.length) {
+        document.getElementById('ws-empty-title').textContent = '没有匹配「' + state.wsQuery.trim() + '」的工作区或会话。';
+        list.replaceChildren();
+        return;
+      }
+      list.innerHTML = blocks.map(workspaceMarkup).join('');
+    }
+
+    function choiceMarkup(item, list, kind) {
+      const enabledCount = list.filter((entry) => entry.enabled).length;
+      const lock = item.enabled && enabledCount <= 1;
+      const why = lock ? '至少保留一个启用项' : (!item.enabled ? '停用时不能设为默认' : '');
+      const whyId = kind + '-why-' + item.id;
+      const note = item.note ? '<span class="kicker">' + esc(item.note) + '</span>' : '';
+      const whyHtml = why ? '<span class="kicker" id="' + whyId + '">' + esc(why) + '</span>' : '';
+      const defBtn = item.isDefault ? '' : '<button type="button" class="secondary" id="' + kind + '-default-' + esc(item.id) + '" data-action="make-default" data-kind="' + kind + '" data-id="' + esc(item.id) + '"' + (item.enabled ? '' : ' disabled aria-describedby="' + whyId + '"') + '>设为默认</button>';
+      return '<article class="record">'
+        + '<div class="od-field od-fill"><span class="record-title">' + esc(item.name) + '</span>' + note
+        + '<span class="od-cluster"><span class="od-nowrap">' + (item.enabled ? '已启用' : '已停用') + '</span>' + (item.isDefault ? '<span class="od-nowrap">默认</span>' : '') + '</span>'
+        + whyHtml + '</div>'
+        + '<div class="od-cluster od-fixed">' + defBtn
+        + '<button type="button" class="' + (item.enabled ? 'danger' : 'secondary') + '" id="' + kind + '-toggle-' + esc(item.id) + '" data-action="toggle-choice" data-kind="' + kind + '" data-id="' + esc(item.id) + '"' + (lock ? ' disabled aria-describedby="' + whyId + '"' : '') + '>' + (item.enabled ? '停用' : '启用') + '</button>'
+        + '</div></article>';
+    }
+
+    function renderModels(focusId) {
+      document.getElementById('model-list').innerHTML = state.models.map((item) => choiceMarkup(item, state.models, 'model')).join('');
+      document.getElementById('permission-list').innerHTML = state.permissions.map((item) => choiceMarkup(item, state.permissions, 'permission')).join('');
+      if (focusId) focusShown(focusId);
+    }
+
+    function listByKind(kind) { return kind === 'model' ? state.models : state.permissions; }
+    function noun(kind) { return kind === 'model' ? '模型' : '权限'; }
+
+    function pluginById(id) { return state.plugins.find((plugin) => plugin.id === id); }
+
+    function pluginVisible(plugin) {
+      if (state.pluginTab === 'installed' && !plugin.installed) return false;
+      const q = state.pluginQuery.trim().toLowerCase();
+      if (!q) return true;
+      return [plugin.title, plugin.packageName, plugin.author, plugin.description, plugin.source].some((part) => part.toLowerCase().includes(q));
+    }
+
+    function pluginMarkup(plugin) {
+      const status = [plugin.listed ? '已上架' : '未上架', plugin.installed ? '已安装' : '未安装', plugin.enabled ? '已启用' : '未启用'].join(' · ');
+      const publish = plugin.listed ? '' : '<button type="button" class="primary" id="plugin-publish-' + esc(plugin.id) + '" data-action="plugin-publish" data-id="' + esc(plugin.id) + '">上架</button>';
+      return '<article class="record"><div class="od-field od-fill">'
+        + '<span class="record-title">' + esc(plugin.title) + '</span>'
+        + '<span class="od-truncate kicker">' + esc(plugin.packageName) + '</span>'
+        + '<span>' + esc(status) + '</span></div>'
+        + '<div class="od-cluster od-fixed"><div class="od-row"><span id="plugin-switch-label-' + esc(plugin.id) + '">启用</span>'
+        + '<button type="button" class="switch" id="plugin-switch-' + esc(plugin.id) + '" data-action="plugin-toggle" data-id="' + esc(plugin.id) + '" role="switch" aria-checked="' + (plugin.enabled ? 'true' : 'false') + '" aria-labelledby="plugin-switch-label-' + esc(plugin.id) + '"><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button></div>'
+        + publish
+        + '<button type="button" class="secondary" id="plugin-detail-' + esc(plugin.id) + '" data-action="plugin-detail" data-id="' + esc(plugin.id) + '" aria-haspopup="dialog">详情</button>'
+        + '</div></article>';
+    }
+
+    function renderPlugins() {
+      const query = state.pluginQuery.trim();
+      const items = state.plugins.filter(pluginVisible);
+      const list = document.getElementById('plugin-list');
+      const empty = document.getElementById('plugin-empty');
+      const discover = document.getElementById('tab-discover');
+      const installed = document.getElementById('tab-installed');
+      const onDiscover = state.pluginTab === 'discover';
+      discover.setAttribute('aria-selected', String(onDiscover));
+      installed.setAttribute('aria-selected', String(!onDiscover));
+      discover.tabIndex = onDiscover ? 0 : -1;
+      installed.tabIndex = onDiscover ? -1 : 0;
+      document.getElementById('plugin-panel').setAttribute('aria-labelledby', onDiscover ? 'tab-discover' : 'tab-installed');
+      document.getElementById('plugin-clear').hidden = query === '';
+      list.hidden = items.length === 0;
+      empty.hidden = items.length !== 0;
+      const gotoBtn = document.getElementById('plugin-goto-discover');
+      if (!items.length) {
+        const title = document.getElementById('plugin-empty-title');
+        const next = document.getElementById('plugin-empty-next');
+        if (query) {
+          title.textContent = '没有匹配「' + query + '」的插件。';
+          next.textContent = state.pluginTab === 'installed' ? '已安装里没有这项。可以清空上方搜索，或到发现查看。' : '换个关键词，或清空上方搜索。';
+          gotoBtn.hidden = state.pluginTab !== 'installed';
+        } else if (state.pluginTab === 'installed') {
+          title.textContent = '已安装里还没有插件。';
+          next.textContent = '到发现查看可以上架和启用的插件。';
+          gotoBtn.hidden = false;
+        } else {
+          title.textContent = '发现里还没有插件。';
+          next.textContent = '这份示例里没有可展示的插件。';
+          gotoBtn.hidden = true;
+        }
+        list.replaceChildren();
+        return;
+      }
+      gotoBtn.hidden = true;
+      list.innerHTML = items.map(pluginMarkup).join('');
+    }
+
+    function addField(parent, label, value, nowrap) {
+      const field = document.createElement('div');
+      field.className = 'od-field';
+      const kicker = document.createElement('span');
+      kicker.className = 'kicker';
+      kicker.textContent = label;
+      const text = document.createElement('span');
+      text.textContent = value;
+      if (nowrap) text.className = 'od-nowrap';
+      field.append(kicker, text);
+      parent.append(field);
+    }
+
+    function fillSession(ws, session) {
+      document.getElementById('detail-title').textContent = session.title;
+      const body = document.getElementById('detail-body');
+      body.replaceChildren();
+      addField(body, '工作区', ws.name, false);
+      addField(body, '状态', session.status, true);
+      addField(body, '最近活动', session.updated, true);
+      addField(body, '轮次', session.turns + ' 轮', true);
+      addField(body, '说明', session.note, false);
+      const note = document.createElement('p');
+      note.className = 'kicker';
+      note.textContent = '这是页面内示例，没有连接模型。';
+      body.append(note);
+    }
+
+    function fillPluginDetail(plugin) {
+      document.getElementById('detail-title').textContent = plugin.title;
+      const body = document.getElementById('detail-body');
+      body.replaceChildren();
+      addField(body, '包名', plugin.packageName, false);
+      addField(body, '作者', plugin.author, false);
+      addField(body, '版本', plugin.version, true);
+      addField(body, '来源', plugin.source, false);
+      addField(body, '说明', plugin.description, false);
+      addField(body, '状态', [plugin.listed ? '已上架' : '未上架', plugin.installed ? '已安装' : '未安装', plugin.enabled ? '已启用' : '未启用'].join('，'), false);
+      const note = document.createElement('p');
+      note.className = 'kicker';
+      note.textContent = '安装状态来自示例，这里不能安装或卸载。上架和启用只改这个页面。';
+      body.append(note);
+      const row = document.createElement('div');
+      row.className = 'od-row';
+      const label = document.createElement('span');
+      label.id = 'detail-switch-label';
+      label.textContent = '启用';
+      const sw = document.createElement('button');
+      sw.type = 'button';
+      sw.className = 'switch';
+      sw.id = 'detail-switch';
+      sw.dataset.action = 'plugin-toggle';
+      sw.dataset.id = plugin.id;
+      sw.setAttribute('role', 'switch');
+      sw.setAttribute('aria-checked', plugin.enabled ? 'true' : 'false');
+      sw.setAttribute('aria-labelledby', 'detail-switch-label');
+      sw.innerHTML = '<span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>';
+      row.append(label, sw);
+      body.append(row);
+      if (!plugin.listed) {
+        const actions = document.createElement('div');
+        actions.className = 'dialog-actions';
+        const pub = document.createElement('button');
+        pub.type = 'button';
+        pub.className = 'primary';
+        pub.dataset.action = 'plugin-publish';
+        pub.dataset.id = plugin.id;
+        pub.textContent = '上架';
+        actions.append(pub);
+        body.append(actions);
+      }
+    }
+
+    function openDetail(opener, fill) {
+      state.detailOpenerId = opener && opener.id ? opener.id : '';
+      fill();
+      if (!detailDialog.open) detailDialog.showModal();
+      const heading = document.getElementById('detail-title');
+      heading.tabIndex = -1;
+      heading.focus();
+    }
+
+    function closeDetail() {
+      const openerId = state.detailOpenerId;
+      if (detailDialog.open) detailDialog.close();
+      const opener = openerId ? document.getElementById(openerId) : null;
+      if (isShown(opener)) opener.focus();
+      else document.getElementById('view-title').focus();
+    }
+
+    function openConfirm(options) {
+      if (confirmDialog.open) return;
+      document.getElementById('confirm-title').textContent = options.title;
+      document.getElementById('confirm-body').textContent = options.body;
+      document.getElementById('confirm-ok').textContent = options.ok;
+      confirmRun = options.run;
+      confirmOpener = options.opener || null;
+      confirmDialog.showModal();
+      document.getElementById('confirm-cancel').focus();
+    }
+
+    function cancelConfirm() {
+      const opener = confirmOpener;
+      confirmRun = null;
+      confirmOpener = null;
+      if (confirmDialog.open) confirmDialog.close();
+      if (isShown(opener)) opener.focus();
+    }
+
+    function onToggleChoice(btn) {
+      const kind = btn.dataset.kind;
+      const list = listByKind(kind);
+      const item = list.find((entry) => entry.id === btn.dataset.id);
+      if (!item) return;
+      if (!item.enabled) {
+        item.enabled = true;
+        renderModels(kind + '-toggle-' + item.id);
+        toast('已启用' + item.name + '。只改本页示例。');
+        return;
+      }
+      if (list.filter((entry) => entry.enabled).length <= 1) return;
+      const next = list.find((entry) => entry.enabled && entry.id !== item.id);
+      const body = item.isDefault
+        ? '停用「' + item.name + '」？它现在是默认' + noun(kind) + '。停用后，默认会改为「' + next.name + '」。这只改本页示例，不会通知真实客户端。'
+        : '停用「' + item.name + '」？停用后，新的选择里不会再出现它。这只改本页示例，不会通知真实客户端。';
+      openConfirm({
+        title: '停用' + item.name + '？',
+        body,
+        ok: '停用',
+        opener: btn,
+        run() {
+          item.enabled = false;
+          let message = '已停用' + item.name + '。';
+          if (item.isDefault) {
+            item.isDefault = false;
+            next.isDefault = true;
+            message += '默认' + noun(kind) + '改为' + next.name + '。';
+          }
+          renderModels(kind + '-toggle-' + item.id);
+          toast(message + '只改本页示例。');
+        }
+      });
+    }
+
+    function onMakeDefault(btn) {
+      const list = listByKind(btn.dataset.kind);
+      const item = list.find((entry) => entry.id === btn.dataset.id);
+      if (!item || !item.enabled || item.isDefault) return;
+      list.forEach((entry) => { entry.isDefault = entry.id === item.id; });
+      renderModels(btn.dataset.kind + '-toggle-' + item.id);
+      toast('已把' + item.name + '设为默认' + noun(btn.dataset.kind) + '。');
+    }
+
+    function afterPluginChange(plugin, fromDetail, focusId) {
+      renderPlugins();
+      renderOverview();
+      if (fromDetail && detailDialog.open) {
+        fillPluginDetail(plugin);
+        const again = document.getElementById('detail-switch');
+        if (again) again.focus();
+        return;
+      }
+      if (!focusShownExists(focusId)) focusShown('plugin-search');
+    }
+
+    function focusShownExists(id) {
+      const el = document.getElementById(id);
+      if (!isShown(el)) return false;
+      el.focus();
+      return true;
+    }
+
+    function syncNav() {
+      const open = state.navOpen && narrow.matches;
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('is-open', open);
+      sidebar.inert = narrow.matches && !state.navOpen;
+      document.getElementById('nav-scrim').hidden = !open;
+      const toggle = document.getElementById('nav-toggle');
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.querySelector('.vh').textContent = open ? '关闭导航' : '打开导航';
+    }
+
+    function showView(view, focusTitle) {
+      if (!VIEW[view]) return;
+      state.view = view;
+      document.querySelectorAll('[data-view]').forEach((section) => {
+        section.hidden = section.dataset.view !== view;
+      });
+      document.querySelectorAll('#side-nav [data-action="nav"]').forEach((item) => {
+        item.setAttribute('aria-current', item.dataset.nav === view ? 'page' : 'false');
+      });
+      document.getElementById('view-title').textContent = VIEW[view][0];
+      document.getElementById('view-lead').textContent = VIEW[view][1];
+      if (view === 'overview') renderOverview();
+      if (narrow.matches && state.navOpen) {
+        state.navOpen = false;
+        syncNav();
+      }
+      if (focusTitle) document.getElementById('view-title').focus();
+    }
+
+    function onSwitch(btn) {
+      if (btn.dataset.key === 'lan') {
+        if (btn.getAttribute('aria-checked') === 'true') {
+          btn.setAttribute('aria-checked', 'false');
+          markDirty();
+          return;
+        }
+        openConfirm({
+          title: '允许局域网访问？',
+          body: '同一局域网里，持有链接的人可以通过 DSH 操作对应电脑。这里只把策略记在页面里，不会打开端口，也不会签发证书。',
+          ok: '允许',
+          opener: btn,
+          run() {
+            btn.setAttribute('aria-checked', 'true');
+            markDirty();
+            btn.focus();
+          }
+        });
+        return;
+      }
+      const next = btn.getAttribute('aria-checked') !== 'true';
+      btn.setAttribute('aria-checked', String(next));
+      if (btn.dataset.key === 'notify') syncNotifyChildren();
+      markDirty();
+    }
+
+    document.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-action]');
+      if (!btn || btn.disabled) return;
+      const action = btn.dataset.action;
+      if (action === 'nav') showView(btn.dataset.nav, true);
+      else if (action === 'nav-toggle') {
+        state.navOpen = !state.navOpen;
+        syncNav();
+        if (state.navOpen && narrow.matches) {
+          const first = document.querySelector('#side-nav [data-action="nav"]');
+          if (first) first.focus();
+        }
+      } else if (action === 'close-nav') {
+        state.navOpen = false;
+        syncNav();
+        document.getElementById('nav-toggle').focus();
+      } else if (action === 'client-filter') {
+        state.clientFilter = btn.dataset.value;
+        renderClients();
+        btn.focus();
+      } else if (action === 'client-clear') {
+        state.clientQuery = '';
+        state.clientFilter = 'all';
+        document.getElementById('client-search').value = '';
+        renderClients();
+        document.getElementById('client-search').focus();
+      } else if (action === 'check-client') startCheck(btn.dataset.id);
+      else if (action === 'ws-clear') {
+        state.wsQuery = '';
+        document.getElementById('ws-search').value = '';
+        renderWorkspaces();
+        document.getElementById('ws-search').focus();
+      } else if (action === 'session-detail') {
+        const ws = state.workspaces.find((item) => item.id === btn.dataset.ws);
+        const session = ws && ws.sessions.find((item) => item.id === btn.dataset.id);
+        if (ws && session) openDetail(btn, () => fillSession(ws, session));
+      } else if (action === 'toggle-choice') onToggleChoice(btn);
+      else if (action === 'make-default') onMakeDefault(btn);
+      else if (action === 'plugin-tab') {
+        state.pluginTab = btn.dataset.value === 'installed' ? 'installed' : 'discover';
+        renderPlugins();
+        if (btn.id === 'plugin-goto-discover') focusShown('tab-discover');
+      } else if (action === 'plugin-clear') {
+        state.pluginQuery = '';
+        document.getElementById('plugin-search').value = '';
+        renderPlugins();
+        document.getElementById('plugin-search').focus();
+      } else if (action === 'plugin-toggle') {
+        const plugin = pluginById(btn.dataset.id);
+        if (!plugin) return;
+        const fromDetail = !!btn.closest('#detail-dialog');
+        plugin.enabled = !plugin.enabled;
+        toast((plugin.enabled ? '已启用' : '已停用') + plugin.title + '。只改本页示例。');
+        afterPluginChange(plugin, fromDetail, 'plugin-switch-' + plugin.id);
+      } else if (action === 'plugin-publish') {
+        const plugin = pluginById(btn.dataset.id);
+        if (!plugin || plugin.listed) return;
+        const fromDetail = !!btn.closest('#detail-dialog');
+        plugin.listed = true;
+        toast('已把' + plugin.title + '标为上架。没有发布到真实市场。');
+        afterPluginChange(plugin, fromDetail, 'plugin-detail-' + plugin.id);
+      } else if (action === 'plugin-detail') {
+        const plugin = pluginById(btn.dataset.id);
+        if (plugin) openDetail(btn, () => fillPluginDetail(plugin));
+      } else if (action === 'close-detail') closeDetail();
+      else if (action === 'cancel-confirm') cancelConfirm();
+      else if (action === 'switch') onSwitch(btn);
+      else if (action === 'save-policy') savePolicy();
+    });
+
+    document.getElementById('confirm-ok').addEventListener('click', () => {
+      const run = confirmRun;
+      confirmRun = null;
+      confirmOpener = null;
+      if (confirmDialog.open) confirmDialog.close();
+      if (run) run();
+    });
+
+    function wireDismiss(dialog, dismiss) {
+      dialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        dismiss();
+      });
+      dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) dismiss();
+      });
+    }
+    wireDismiss(confirmDialog, cancelConfirm);
+    wireDismiss(detailDialog, closeDetail);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('dialog[open]')) return;
+      if (state.navOpen && narrow.matches) {
+        state.navOpen = false;
+        syncNav();
+        document.getElementById('nav-toggle').focus();
+      }
+    });
+
+    document.getElementById('plugin-tabs').addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+      const tabs = [...document.querySelectorAll('#plugin-tabs [role="tab"]')];
+      const index = tabs.indexOf(document.activeElement);
+      if (index < 0) return;
+      event.preventDefault();
+      const next = tabs[(index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+      next.click();
+      next.focus();
+    });
+
+    document.getElementById('client-search').addEventListener('input', (event) => {
+      state.clientQuery = event.target.value;
+      renderClients();
+    });
+    document.getElementById('ws-search').addEventListener('input', (event) => {
+      state.wsQuery = event.target.value;
+      renderWorkspaces();
+    });
+    document.getElementById('plugin-search').addEventListener('input', (event) => {
+      state.pluginQuery = event.target.value;
+      renderPlugins();
+    });
+
+    const portInput = document.getElementById('port');
+    portInput.addEventListener('blur', () => {
+      state.portTouched = true;
+      validatePort(true);
+      markDirty();
+    });
+    portInput.addEventListener('input', () => {
+      if (state.portTouched) validatePort(true);
+      markDirty();
+    });
+    policyForm.addEventListener('change', (event) => {
+      if (event.target.name === 'window-mode') syncModeStyles();
+      markDirty();
+    });
+    policyForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      savePolicy();
+    });
+    policyForm.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && event.target.id === 'port') {
+        event.preventDefault();
+        savePolicy();
+      }
+    });
+
+    narrow.addEventListener('change', () => {
+      if (!narrow.matches) state.navOpen = false;
+      syncNav();
+    });
+
+    syncModeStyles();
+    syncNotifyChildren();
+    state.savedMessage = '当前是页面内示例：兼容模式，端口 0，未允许局域网，桌面通知开启。保存也不会改本机设置。';
+    state.savedSnapshot = snapshot();
+    document.getElementById('policy-status').textContent = state.savedMessage;
+    renderClients();
+    renderWorkspaces();
+    renderModels();
+    renderPlugins();
+    renderOverview();
+    showView('overview', false);
+    syncNav();
+  </script>
+</body>
+</html>

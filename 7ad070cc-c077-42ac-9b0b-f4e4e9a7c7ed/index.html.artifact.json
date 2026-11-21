@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "index.html",
+  "entry": "../客户端原型设计/index.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-11-19T02:50:59.787Z",
+  "updatedAt": "2026-11-20T08:32:16.613Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}
