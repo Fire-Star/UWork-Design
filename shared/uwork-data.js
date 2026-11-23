@@ -170,6 +170,23 @@
       { id: 'tf5', name: '人力资源', parent: null, canEdit: false, owner: '综合管理部' },
       { id: 'tf6', name: '项目管理', parent: null, canEdit: true, owner: '李思' }
     ],
+    skillFolders: [
+      { id: 'sf0', name: '未分类', parent: null, owner: '系统管理员', desc: '尚未归入目录的技能与本地安装技能' },
+      { id: 'sf1', name: '办公写作', parent: null, owner: '综合管理部', desc: '公文、会议与日常办公写作类技能' },
+      { id: 'sf11', name: '公文与会务', parent: 'sf1', owner: '综合管理部', desc: '通知、请示、函等公文写作' },
+      { id: 'sf12', name: '会议与纪要', parent: 'sf1', owner: '综合管理部', desc: '会议记录整理与待办跟踪' },
+      { id: 'sf2', name: '质量管理', parent: null, owner: '质量管理部', desc: '体系运行、质量问题与审核类技能' },
+      { id: 'sf21', name: '质量问题分析', parent: 'sf2', owner: '质量管理部', desc: '8D、根因分析与纠正措施' },
+      { id: 'sf22', name: '体系审核', parent: 'sf2', owner: '质量管理部', desc: '内审、外审检查表与不符合项' },
+      { id: 'sf3', name: '保密合规', parent: null, owner: '保密办公室', desc: '保密自查与法务合规类技能' },
+      { id: 'sf31', name: '保密自查', parent: 'sf3', owner: '保密办公室', desc: '制度对照、涉密载体与权限检查' },
+      { id: 'sf32', name: '法务审查', parent: 'sf3', owner: '保密办公室', desc: '合同、协议风险条款审查' },
+      { id: 'sf4', name: '产品研发', parent: null, owner: '产品研发部', desc: '需求、设计与图纸类技能' },
+      { id: 'sf41', name: '需求拆解', parent: 'sf4', owner: '产品研发部', desc: '需求分析与用户故事拆解' },
+      { id: 'sf42', name: '图纸与数据', parent: 'sf4', owner: '产品研发部', desc: '图纸解析与设计数据处理' },
+      { id: 'sf5', name: '数据分析', parent: null, owner: '信息技术部', desc: '表格统计、对比与可视化建议' },
+      { id: 'sf6', name: '通用能力', parent: null, owner: '信息技术部', desc: '面向全员的基础能力' }
+    ],
     templates: [
       { id: 't1', name: '质量目标分解表.xlsx', folder: 'tf12', ext: 'xlsx', size: '86 KB', level: 'L3', owner: '张明', updated: '2026-11-19' },
       { id: 't2', name: '8D 问题解决报告模板.docx', folder: 'tf1', ext: 'docx', size: '142 KB', level: 'L3', owner: '张明', updated: '2026-11-18' },
@@ -194,28 +211,79 @@
       { id: 'm6', name: 'UWork-Local-7B', provider: '本地部署', context: '32K', level: 'L4', status: '停用', isDefault: false, desc: '内网离线部署，数据不出域' }
     ],
     skills: [
-      { id: 's1', name: '公文写作', category: '办公写作', level: 'L1', version: '2.3.0', status: '启用', desc: '按党政机关公文格式起草通知、请示、函与报告', runs: 1248, pkg: { name: '公文写作-v2.3.0.zip', size: '2.8 MB', uploaded: '2026-11-18 10:24' } },
-      { id: 's2', name: '会议纪要', category: '办公写作', level: 'L2', version: '1.8.2', status: '启用', desc: '从会议记录中提炼决议、责任人与待办事项', runs: 986, pkg: { name: '会议纪要-v1.8.2.zip', size: '2.1 MB', uploaded: '2026-11-16 15:40' } },
-      { id: 's3', name: '质量8D分析', category: '质量管理', level: 'L3', version: '3.1.0', status: '启用', desc: '从问题描述生成 D1-D8 分析报告与整改建议', runs: 432, pkg: { name: '质量8D分析-v3.1.0.zip', size: '4.6 MB', uploaded: '2026-11-19 09:12' } },
-      { id: 's4', name: '内审检查', category: '质量管理', level: 'L3', version: '1.4.0', status: '启用', desc: '依据体系条款生成内审检查表与不符合项清单', runs: 318, pkg: { name: '内审检查-v1.4.0.zip', size: '3.2 MB', uploaded: '2026-11-11 14:05' } },
-      { id: 's5', name: '保密合规自查', category: '保密管理', level: 'L3', version: '2.0.1', status: '启用', desc: '对照保密制度检查文档、流程与人员权限', runs: 204, pkg: { name: '保密合规自查-v2.0.1.zip', size: '1.9 MB', uploaded: '2026-11-14 11:26' } },
-      { id: 's6', name: '合同审查', category: '法务合规', level: 'L4', version: '1.6.0', status: '启用', desc: '识别合同风险条款并给出修改建议', runs: 176, pkg: { name: '合同审查-v1.6.0.zip', size: '3.8 MB', uploaded: '2026-11-08 16:33' } },
-      { id: 's7', name: '产品需求拆解', category: '产品研发', level: 'L2', version: '2.2.0', status: '启用', desc: '将业务需求拆解为用户故事与验收标准', runs: 521, pkg: { name: '产品需求拆解-v2.2.0.zip', size: '2.4 MB', uploaded: '2026-11-20 10:07' } },
-      { id: 's8', name: '图纸解析', category: '产品研发', level: 'L3', version: '1.1.0', status: '启用', desc: '读取二维图纸尺寸、公差与技术要求', runs: 143, pkg: { name: '图纸解析-v1.1.0.zip', size: '6.1 MB', uploaded: '2026-11-05 13:48' } },
-      { id: 's9', name: '数据透视', category: '数据分析', level: 'L1', version: '3.0.4', status: '启用', desc: '对表格数据进行统计、对比与可视化建议', runs: 1673, pkg: { name: '数据透视-v3.0.4.zip', size: '1.6 MB', uploaded: '2026-11-17 17:21' } },
-      { id: 's10', name: '网页检索', category: '通用能力', level: 'L1', version: '2.5.0', status: '启用', desc: '联网检索公开资料并给出来源引用', runs: 3021, pkg: { name: '网页检索-v2.5.0.zip', size: '1.2 MB', uploaded: '2026-11-21 09:36' } }
+      { id: 's1', name: '公文写作', folder: 'sf11', category: '公文与会务', level: 'L1', version: '2.3.0', status: '启用', featured: true, desc: '按党政机关公文格式起草通知、请示、函与报告', runs: 1248, pkg: { name: '公文写作-v2.3.0.zip', size: '2.8 MB', uploaded: '2026-11-18 10:24' } },
+      { id: 's2', name: '会议纪要', folder: 'sf12', category: '会议与纪要', level: 'L2', version: '1.8.2', status: '启用', desc: '从会议记录中提炼决议、责任人与待办事项', runs: 986, pkg: { name: '会议纪要-v1.8.2.zip', size: '2.1 MB', uploaded: '2026-11-16 15:40' } },
+      { id: 's3', name: '质量8D分析', folder: 'sf21', category: '质量问题分析', level: 'L3', version: '3.1.0', status: '启用', featured: true, desc: '从问题描述生成 D1-D8 分析报告与整改建议', runs: 432, pkg: { name: '质量8D分析-v3.1.0.zip', size: '4.6 MB', uploaded: '2026-11-19 09:12' } },
+      { id: 's4', name: '内审检查', folder: 'sf22', category: '体系审核', level: 'L3', version: '1.4.0', status: '启用', desc: '依据体系条款生成内审检查表与不符合项清单', runs: 318, pkg: { name: '内审检查-v1.4.0.zip', size: '3.2 MB', uploaded: '2026-11-11 14:05' } },
+      { id: 's5', name: '保密合规自查', folder: 'sf31', category: '保密自查', level: 'L3', version: '2.0.1', status: '启用', desc: '对照保密制度检查文档、流程与人员权限', runs: 204, pkg: { name: '保密合规自查-v2.0.1.zip', size: '1.9 MB', uploaded: '2026-11-14 11:26' } },
+      { id: 's6', name: '合同审查', folder: 'sf32', category: '法务审查', level: 'L4', version: '1.6.0', status: '启用', desc: '识别合同风险条款并给出修改建议', runs: 176, pkg: { name: '合同审查-v1.6.0.zip', size: '3.8 MB', uploaded: '2026-11-08 16:33' } },
+      { id: 's7', name: '产品需求拆解', folder: 'sf41', category: '需求拆解', level: 'L2', version: '2.2.0', status: '启用', desc: '将业务需求拆解为用户故事与验收标准', runs: 521, pkg: { name: '产品需求拆解-v2.2.0.zip', size: '2.4 MB', uploaded: '2026-11-20 10:07' } },
+      { id: 's8', name: '图纸解析', folder: 'sf42', category: '图纸与数据', level: 'L3', version: '1.1.0', status: '启用', desc: '读取二维图纸尺寸、公差与技术要求', runs: 143, pkg: { name: '图纸解析-v1.1.0.zip', size: '6.1 MB', uploaded: '2026-11-05 13:48' } },
+      { id: 's9', name: '数据透视', folder: 'sf5', category: '数据分析', level: 'L1', version: '3.0.4', status: '启用', desc: '对表格数据进行统计、对比与可视化建议', runs: 1673, pkg: { name: '数据透视-v3.0.4.zip', size: '1.6 MB', uploaded: '2026-11-17 17:21' } },
+      { id: 's10', name: '网页检索', folder: 'sf6', category: '通用能力', level: 'L1', version: '2.5.0', status: '启用', featured: true, desc: '联网检索公开资料并给出来源引用', runs: 3021, pkg: { name: '网页检索-v2.5.0.zip', size: '1.2 MB', uploaded: '2026-11-21 09:36' } }
     ],
+    /* 连接器分类：与技能目录同构的两级分类树。
+       一级分类在客户端以胶囊形标签展示，二级分类以子标签行展示，
+       每个连接器归属一个分类（folder），分类名同步写入 category 便于搜索。 */
+    connectorFolders: [
+      { id: 'cf0', name: '未分类', parent: null, owner: '系统管理员', desc: '尚未归入分类的连接器与自定义接入' },
+      { id: 'cf1', name: '协同办公', parent: null, owner: '综合管理部', desc: '日常沟通、会议与审批类系统' },
+      { id: 'cf11', name: '即时通讯', parent: 'cf1', owner: '综合管理部', desc: '企业 IM、群消息与通讯录同步' },
+      { id: 'cf12', name: '会议与日程', parent: 'cf1', owner: '综合管理部', desc: '视频会议、日程与转写记录' },
+      { id: 'cf13', name: '邮件', parent: 'cf1', owner: '综合管理部', desc: '企业邮箱收发与日程邀请' },
+      { id: 'cf2', name: '内容与知识', parent: null, owner: '信息技术部', desc: '文档、知识库与文件存储类系统' },
+      { id: 'cf21', name: '在线文档', parent: 'cf2', owner: '信息技术部', desc: '在线文档与表格读写' },
+      { id: 'cf22', name: '知识库', parent: 'cf2', owner: '信息技术部', desc: '企业知识库与资料检索' },
+      { id: 'cf23', name: '文件存储', parent: 'cf2', owner: '信息技术部', desc: '网盘、对象存储与文件分发' },
+      { id: 'cf3', name: '研发与项目', parent: null, owner: '产品研发部', desc: '研发管理、代码托管与项目协作' },
+      { id: 'cf31', name: '研发管理', parent: 'cf3', owner: '产品研发部', desc: '需求、缺陷、迭代与产品结构' },
+      { id: 'cf32', name: '代码托管', parent: 'cf3', owner: '产品研发部', desc: '代码仓库检索与合并请求' },
+      { id: 'cf4', name: '经营与客户', parent: null, owner: '市场部', desc: '经营、财务与客户类系统' },
+      { id: 'cf41', name: '经营财务', parent: 'cf4', owner: '市场部', desc: '采购、库存、成本与结算数据' },
+      { id: 'cf42', name: '客户管理', parent: 'cf4', owner: '市场部', desc: '客户、商机与合同数据' },
+      { id: 'cf43', name: '工商数据', parent: 'cf4', owner: '市场部', desc: '企业工商、股东与风险信息' },
+      { id: 'cf44', name: '合同签署', parent: 'cf4', owner: '市场部', desc: '合同发起与签署状态' },
+      { id: 'cf5', name: '生产与质量', parent: null, owner: '质量管理部', desc: '质量、生产与供应链系统' },
+      { id: 'cf51', name: '质量管理', parent: 'cf5', owner: '质量管理部', desc: '不合格品、纠正措施与检验记录' },
+      { id: 'cf52', name: '生产制造', parent: 'cf5', owner: '质量管理部', desc: '设备状态、点检与告警记录' },
+      { id: 'cf53', name: '供应链', parent: 'cf5', owner: '质量管理部', desc: '供应商资质、交付与绩效数据' },
+      { id: 'cf6', name: '数据与表单', parent: null, owner: '信息技术部', desc: '数据分析与表单收集' },
+      { id: 'cf61', name: '数据分析', parent: 'cf6', owner: '信息技术部', desc: '经营报表与指标查询' },
+      { id: 'cf62', name: '表单收集', parent: 'cf6', owner: '信息技术部', desc: '问卷、表单采集与汇总' },
+      { id: 'cf7', name: '人力资源', parent: null, owner: '综合管理部', desc: '组织人事与绩效系统' }
+    ],
+    /* 连接器：由管理端预置，客户端只展示不高于账号密级的项。
+       configured：接入配置是否已就绪（管理端/授权完成）→ 客户端显示开关，可反复开启关闭；
+                   未就绪的显示「连接」，点击后完成配置并开启。
+       status：开启状态（已连接 = 开关打开）。
+       brand / mark 用于客户端渲染品牌色图标（mark 见 app.js 的 CONN_MARKS）。 */
     connectors: [
-      { id: 'c1', name: '企业微信', category: '即时通讯', level: 'L2', status: '已连接', endpoint: 'qy.weixin.qq.com', desc: '同步组织架构、消息与待办' },
-      { id: 'c2', name: '腾讯文档', category: '在线文档', level: 'L2', status: '已连接', endpoint: 'docs.qq.com', desc: '读取与写入在线文档、表格' },
-      { id: 'c3', name: '乐享知识库', category: '知识库', level: 'L3', status: '已连接', endpoint: 'lexiang.tencent.com', desc: '检索企业知识库与文档目录' },
-      { id: 'c4', name: 'OA 协同办公', category: '协同办公', level: 'L3', status: '已连接', endpoint: 'oa.uwork.cn', desc: '发起审批、查询流程状态' },
-      { id: 'c5', name: 'PLM 研发平台', category: '研发管理', level: 'L4', status: '已连接', endpoint: 'plm.uwork.cn', desc: '读取产品结构、图纸与变更单' },
-      { id: 'c6', name: '企业邮箱', category: '邮件', level: 'L1', status: '已连接', endpoint: 'mail.uwork.cn', desc: '收发邮件与日程邀请' },
-      { id: 'c7', name: 'GitLab', category: '代码托管', level: 'L3', status: '未连接', endpoint: 'git.uwork.cn', desc: '代码仓库检索与合并请求' },
-      { id: 'c8', name: '腾讯会议', category: '会议', level: 'L1', status: '已连接', endpoint: 'meeting.tencent.com', desc: '创建会议、获取转写记录' },
-      { id: 'c9', name: '钉钉', category: '即时通讯', level: 'L2', status: '未连接', endpoint: 'dingtalk.com', desc: '同步外部协作群消息' },
-      { id: 'c10', name: '用友 ERP', category: '经营财务', level: 'L4', status: '已连接', endpoint: 'erp.uwork.cn', desc: '查询采购、库存与成本数据' }
+      { id: 'c1', name: '企业微信', folder: 'cf11', category: '即时通讯', level: 'L2', configured: true, status: '已连接', endpoint: 'qy.weixin.qq.com', desc: '同步组织架构、消息与待办', brand: '#2d7ff9', mark: 'chat' },
+      { id: 'c2', name: '腾讯文档', folder: 'cf21', category: '在线文档', level: 'L2', configured: true, status: '已连接', endpoint: 'docs.qq.com', desc: '读取与写入在线文档、表格', brand: '#2f6bf6', mark: 'doc' },
+      { id: 'c3', name: '乐享知识库', folder: 'cf22', category: '知识库', level: 'L3', configured: true, status: '已连接', endpoint: 'lexiang.tencent.com', desc: '检索企业知识库与文档目录', brand: '#1f6feb', mark: 'book' },
+      { id: 'c4', name: 'OA 协同办公', folder: 'cf1', category: '协同办公', level: 'L3', configured: true, status: '已连接', endpoint: 'oa.uwork.cn', desc: '发起审批、查询流程状态', brand: '#2ea36b', mark: 'flow' },
+      { id: 'c5', name: 'PLM 研发平台', folder: 'cf31', category: '研发管理', level: 'L4', configured: true, status: '已连接', endpoint: 'plm.uwork.cn', desc: '读取产品结构、图纸与变更单', brand: '#6f5bd6', mark: 'cube' },
+      { id: 'c6', name: '企业邮箱', folder: 'cf13', category: '邮件', level: 'L1', configured: true, status: '已连接', endpoint: 'mail.uwork.cn', desc: '收发邮件与日程邀请', brand: '#f08a24', mark: 'mail' },
+      { id: 'c7', name: 'GitLab', folder: 'cf32', category: '代码托管', level: 'L3', configured: false, status: '未连接', endpoint: 'git.uwork.cn', desc: '代码仓库检索与合并请求', brand: '#e24329', mark: 'code' },
+      { id: 'c8', name: '腾讯会议', folder: 'cf12', category: '会议与日程', level: 'L1', configured: true, status: '已连接', endpoint: 'meeting.tencent.com', desc: '创建会议、获取转写记录', brand: '#2f6bf6', mark: 'video' },
+      { id: 'c9', name: '钉钉', folder: 'cf11', category: '即时通讯', level: 'L2', configured: false, status: '未连接', endpoint: 'dingtalk.com', desc: '同步外部协作群消息', brand: '#1a7ef5', mark: 'chat' },
+      { id: 'c10', name: '用友 ERP', folder: 'cf41', category: '经营财务', level: 'L4', configured: true, status: '已连接', endpoint: 'erp.uwork.cn', desc: '查询采购、库存与成本数据', brand: '#d94b3f', mark: 'db' },
+      { id: 'c11', name: '质量管理系统', folder: 'cf51', category: '质量管理', level: 'L3', configured: false, status: '未连接', endpoint: 'qms.uwork.cn', desc: '不合格品、纠正措施与检验记录', brand: '#2ea36b', mark: 'clipboard' },
+      { id: 'c12', name: '供应商协同', folder: 'cf53', category: '供应链', level: 'L4', configured: false, status: '未连接', endpoint: 'srm.uwork.cn', desc: '供应商资质、交付与绩效数据', brand: '#5a77e8', mark: 'flow' },
+      { id: 'c13', name: '设备物联网', folder: 'cf52', category: '生产制造', level: 'L3', configured: false, status: '未连接', endpoint: 'iot.uwork.cn', desc: '设备状态、点检与告警记录', brand: '#3a8fb7', mark: 'activity' },
+      { id: 'c14', name: '飞书', folder: 'cf1', category: '协同办公', level: 'L2', configured: false, status: '未连接', endpoint: 'open.feishu.cn', desc: '消息、日历与云文档互通', brand: '#3d7bf5', mark: 'chat' },
+      { id: 'c15', name: '腾讯问卷', folder: 'cf62', category: '表单收集', level: 'L1', configured: false, status: '未连接', endpoint: 'wj.qq.com', desc: '问卷创建与回收数据', brand: '#2f6bf6', mark: 'form' },
+      { id: 'c16', name: 'TAPD', folder: 'cf31', category: '研发管理', level: 'L2', configured: false, status: '未连接', endpoint: 'tapd.tencent.com', desc: '需求、缺陷与迭代看板', brand: '#2b6cf6', mark: 'kanban' },
+      { id: 'c17', name: '语雀', folder: 'cf22', category: '知识库', level: 'L2', configured: false, status: '未连接', endpoint: 'yuque.com', desc: '团队知识库与文档协作', brand: '#22b573', mark: 'book' },
+      { id: 'c18', name: '企查查', folder: 'cf43', category: '工商数据', level: 'L1', configured: false, status: '未连接', endpoint: 'qcc.com', desc: '企业工商、股东与风险信息', brand: '#2a63d9', mark: 'search' },
+      { id: 'c19', name: '天眼查', folder: 'cf43', category: '工商数据', level: 'L1', configured: false, status: '未连接', endpoint: 'tianyancha.com', desc: '企业司法与经营风险查询', brand: '#1c62d4', mark: 'search' },
+      { id: 'c20', name: '百度网盘', folder: 'cf23', category: '文件存储', level: 'L2', configured: false, status: '未连接', endpoint: 'pan.baidu.com', desc: '读取与归档企业文件', brand: '#2b6cf6', mark: 'cloud' },
+      { id: 'c21', name: '腾讯云 COS', folder: 'cf23', category: '文件存储', level: 'L3', configured: false, status: '未连接', endpoint: 'cloud.tencent.com', desc: '对象存储与文件分发', brand: '#2f7cf6', mark: 'cloud' },
+      { id: 'c22', name: '销售易 CRM', folder: 'cf42', category: '客户管理', level: 'L4', configured: false, status: '未连接', endpoint: 'xiaoshouyi.com', desc: '客户、商机与合同数据', brand: '#e8603c', mark: 'chart' },
+      { id: 'c23', name: '帆软报表', folder: 'cf61', category: '数据分析', level: 'L3', configured: false, status: '未连接', endpoint: 'fanruan.com', desc: '经营报表与指标查询', brand: '#3d6bd8', mark: 'chart' },
+      { id: 'c24', name: '金数据', folder: 'cf62', category: '表单收集', level: 'L2', configured: false, status: '未连接', endpoint: 'jinshuju.net', desc: '表单数据采集与汇总', brand: '#f2a33c', mark: 'table' },
+      { id: 'c25', name: '北森 HR', folder: 'cf7', category: '人力资源', level: 'L4', configured: false, status: '未连接', endpoint: 'beisen.com', desc: '组织人事与绩效数据', brand: '#4a6cf7', mark: 'user' },
+      { id: 'c26', name: '腾讯电子签', folder: 'cf44', category: '合同签署', level: 'L3', configured: false, status: '未连接', endpoint: 'ess.tencent.cn', desc: '合同发起与签署状态', brand: '#2f6bf6', mark: 'shield' }
     ],
     clientReleases: [
       {

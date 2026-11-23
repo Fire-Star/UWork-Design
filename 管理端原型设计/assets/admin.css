@@ -304,6 +304,15 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .tree-item span.label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .tree-item .count { font-size: 9px; color: var(--faint); }
 .tree-divider { height: 1px; background: var(--line); margin: 5px 4px; }
+.tree-tip {
+  display: flex; align-items: flex-start; gap: 5px;
+  margin: 8px 4px 2px; padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 9.5px; line-height: 1.55; color: var(--faint);
+}
+.tree-tip .icon { width: 11px; height: 11px; flex: none; margin-top: 1px; color: #a6afbf; }
+.skill-path { display: grid; gap: 2px; justify-items: start; }
+.skill-path small { font-size: 9px; color: var(--faint); }
 
 /* 文件/名称单元格 */
 .file-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -475,6 +484,10 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
   .breadcrumb span:first-child, .breadcrumb .sep:first-of-type { display: none; }
   .top-user-copy { display: none; }
   .closure-pill { display: none; }
+  .split-layout.split-layout { grid-template-columns: minmax(0, 1fr); }
+  .tree-panel.tree-panel { position: static; }
+  .tree-list { max-height: 232px; overflow-y: auto; }
+  .tree-tip { display: none; }
 }
 @media (max-width: 820px) {
   .page-head { flex-direction: column; align-items: flex-start; gap: 10px; }

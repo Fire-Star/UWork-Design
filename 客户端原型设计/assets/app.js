@@ -126,6 +126,11 @@
     kbDocStatus: 'all',
     tplFolder: 'all',
     tplQuery: '',
+    skillFolder: 'all',
+    skillQuery: '',
+    skillMenuOpen: false,
+    connFolder: 'all',
+    connQuery: '',
     pickerIndex: new Map(),
     clientVersion: CLIENT_VERSION,
     updateRelease: null,
@@ -205,6 +210,107 @@
     const level = Store.level(code);
     return '<span class="lvl" style="color:' + level.color + ';background:' + level.bg + '">' + esc(level.name) + '</span>';
   }
+
+  /* ------------------------------ 连接器图标 ------------------------------ */
+  const CONN_MARKS = {
+    chat: '<path d="M4.6 7.4A2.4 2.4 0 0 1 7 5h10a2.4 2.4 0 0 1 2.4 2.4v6.2A2.4 2.4 0 0 1 17 16h-5.4L7.4 19v-3H7a2.4 2.4 0 0 1-2.4-2.4z"/><path d="M8.8 10.4h6.4"/>',
+    doc: '<path d="M7.2 3.8h6.2l4.4 4.4v11.2a1.4 1.4 0 0 1-1.4 1.4H7.2a1.4 1.4 0 0 1-1.4-1.4V5.2a1.4 1.4 0 0 1 1.4-1.4z"/><path d="M13.4 3.9v4.5h4.4M8.8 12.6h6.4M8.8 16h4.4"/>',
+    book: '<path d="M4.4 5.4a1 1 0 0 1 1-1H10a2 2 0 0 1 2 2v11.8a2 2 0 0 0-2-2H5.4a1 1 0 0 1-1-1z"/><path d="M19.6 5.4a1 1 0 0 0-1-1H14a2 2 0 0 0-2 2v11.8a2 2 0 0 1 2-2h4.6a1 1 0 0 0 1-1z"/>',
+    flow: '<rect x="3.6" y="3.8" width="6.2" height="5" rx="1.4"/><rect x="14.2" y="15.2" width="6.2" height="5" rx="1.4"/><path d="M6.7 8.8v5.8a2.6 2.6 0 0 0 2.6 2.6h4.9"/>',
+    cube: '<path d="M12 3.4 19.4 7.4v9.2L12 20.6 4.6 16.6V7.4z"/><path d="m4.8 7.5 7.2 3.9 7.2-3.9M12 11.4v9"/>',
+    mail: '<rect x="3.6" y="5.6" width="16.8" height="12.8" rx="2.2"/><path d="m4.6 7.6 7.4 5.2 7.4-5.2"/>',
+    code: '<path d="m9.2 7.6-4.4 4.4 4.4 4.4M14.8 7.6l4.4 4.4-4.4 4.4"/>',
+    video: '<rect x="3.4" y="6.2" width="12.6" height="11.6" rx="2.4"/><path d="m16.4 11.2 4.2-2.6v6.8l-4.2-2.6z"/>',
+    db: '<ellipse cx="12" cy="6.2" rx="7.2" ry="2.8"/><path d="M4.8 6.2v11.6c0 1.6 3.2 2.8 7.2 2.8s7.2-1.2 7.2-2.8V6.2"/><path d="M4.8 12c0 1.6 3.2 2.8 7.2 2.8s7.2-1.2 7.2-2.8"/>',
+    clipboard: '<rect x="5.6" y="4.8" width="12.8" height="15" rx="2.2"/><path d="M9.4 4.8V3.6h5.2v1.2M9.2 12.4l2 2 3.8-3.8"/>',
+    activity: '<path d="M3.4 12.4h4l2.4-6.2 4.2 12 2.4-5.8h4.2"/>',
+    form: '<rect x="4.8" y="4.2" width="14.4" height="15.6" rx="2.2"/><path d="M8.4 9h7.2M8.4 12.6h7.2M8.4 16.2h4"/>',
+    kanban: '<rect x="3.8" y="4.4" width="4.6" height="15.2" rx="1.6"/><rect x="9.7" y="4.4" width="4.6" height="10.4" rx="1.6"/><rect x="15.6" y="4.4" width="4.6" height="6.4" rx="1.6"/>',
+    search: '<circle cx="10.8" cy="10.8" r="6"/><path d="m15.2 15.2 4.2 4.2"/>',
+    cloud: '<path d="M7.6 18.4h9.2a3.6 3.6 0 0 0 .4-7.2 5.4 5.4 0 0 0-10.3-1.4 4 4 0 0 0 .7 8.6z"/>',
+    chart: '<path d="M4.4 19.4h15.2"/><path d="M7.4 19.2v-6.2M12 19.2V8.6M16.6 19.2v-9"/>',
+    table: '<rect x="3.6" y="5.2" width="16.8" height="13.6" rx="2"/><path d="M3.6 10.2h16.8M9.4 10.2v8.6M15 10.2v8.6"/>',
+    user: '<circle cx="12" cy="8.4" r="3.6"/><path d="M5.4 19.8c.9-3.4 3.5-5.4 6.6-5.4s5.7 2 6.6 5.4"/>',
+    shield: '<path d="M12 3.4 19 6v6.2c0 3.9-2.9 6.7-7 8.4-4.1-1.7-7-4.5-7-8.4V6z"/><path d="m9.2 11.8 2 2 3.6-3.8"/>',
+    link: '<path d="M10 14a3.6 3.6 0 0 0 5.1 0l2.4-2.4a3.6 3.6 0 0 0-5.1-5.1L11.2 7.6"/><path d="M14 10a3.6 3.6 0 0 0-5.1 0l-2.4 2.4a3.6 3.6 0 0 0 5.1 5.1l1.2-1.2"/>'
+  };
+
+  function connectorTile(item, extra) {
+    const mark = CONN_MARKS[item.mark] || CONN_MARKS.link;
+    return '<span class="conn-tile' + (extra ? ' ' + extra : '') + '" style="--conn-brand:' + esc(item.brand || '#5b7cfa') + '" aria-hidden="true">' +
+      '<svg class="conn-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + mark + '</svg>' +
+    '</span>';
+  }
+
+  function connectorOn(item) {
+    return item.status === '已连接';
+  }
+
+  /* 接入配置是否已就绪：就绪 → 显示开关（可反复开启/关闭）；未就绪 → 显示「连接」 */
+  function connectorConfigured(item) {
+    return item.configured !== false;
+  }
+
+  /* 只更新开关与容器状态，不重排队、不重渲染，避免点击后条目「消失」或跳位 */
+  function refreshConnectorToggle(id) {
+    const connector = (DB.connectors || []).find((item) => item.id === id);
+    if (!connector) return;
+    const on = connectorOn(connector);
+    $$('[data-conn-toggle="' + id + '"]').forEach((btn) => {
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-checked', String(on));
+      btn.title = on ? '关闭连接' : '开启连接';
+      btn.setAttribute('aria-label', connector.name + (on ? '：已开启，点击关闭' : '：已关闭，点击开启'));
+    });
+    const added = on && state.attachments.some((att) => att.key === 'connector:' + id);
+    $$('[data-conn-row="' + id + '"]').forEach((row) => {
+      row.classList.toggle('is-off', !on);
+      row.classList.toggle('is-added', !!added);
+    });
+    $$('[data-conn-card="' + id + '"]').forEach((card) => {
+      card.classList.toggle('is-off', !on);
+      card.classList.toggle('is-on', on);
+    });
+    const pageCount = $('#conn-on-count');
+    if (pageCount) pageCount.textContent = visibleConnectors().filter(connectorOn).length;
+  }
+
+  function connectorSwitch(item, extra) {
+    const on = connectorOn(item);
+    return '<button type="button" class="conn-switch' + (on ? ' is-on' : '') + (extra ? ' ' + extra : '') + '" role="switch" aria-checked="' + on + '"' +
+      ' data-conn-toggle="' + item.id + '" title="' + (on ? '关闭连接' : '开启连接') + '"' +
+      ' aria-label="' + esc(item.name) + (on ? '：已开启，点击关闭' : '：已关闭，点击开启') + '"><span class="conn-knob"></span></button>';
+  }
+
+  function connectorConnectBtn(item) {
+    return '<button type="button" class="conn-connect" data-conn-connect="' + item.id + '" title="连接 ' + esc(item.name) + '">' +
+      icon('link') + '<span>连接</span></button>';
+  }
+
+  function visibleConnectors() {
+    return (DB.connectors || []).filter((item) => Store.canSee(state.user.level, item.level));
+  }
+
+  function syncConnNav() {
+    const node = $('#nav-conn-count');
+    if (!node) return;
+    const list = visibleConnectors();
+    node.textContent = list.filter(connectorOn).length;
+  }
+
+  function setConnectorStatus(id, on, options) {
+    const connector = (DB.connectors || []).find((item) => item.id === id);
+    if (!connector) return null;
+    const opts = options || {};
+    connector.status = on ? '已连接' : '未连接';
+    connector.connectedAt = on ? (today() + ' ' + nowTime()) : null;
+    Store.save();
+    if (!on) removeAttachment('connector:' + connector.id);
+    syncConnNav();
+    if (!opts.quiet) toast((on ? '已开启连接：' : '已关闭连接：') + connector.name);
+    return connector;
+  }
+
   function fileIco(ext) {
     const value = String(ext || 'file').toLowerCase();
     return '<span class="file-ico is-' + esc(value) + '">' + esc(value.slice(0, 4).toUpperCase()) + '</span>';
@@ -682,6 +788,9 @@
     syncMessageBadges();
     const navKb = $('#nav-kb-count');
     if (navKb) navKb.textContent = visibleKbs().length;
+    const navSkill = $('#nav-skill-count');
+    if (navSkill) navSkill.textContent = visibleSkills().length;
+    syncConnNav();
     populateSelects();
     renderAgents();
     renderSuggestions();
@@ -745,6 +854,19 @@
     if (kbLevel) kbLevel.innerHTML = levelOptions(state.user.level === 'L3' ? 'L3' : 'L2');
     const tplLevel = $('#new-template-level');
     if (tplLevel) tplLevel.innerHTML = levelOptions('L2');
+    const connLevel = $('#new-connector-level');
+    if (connLevel) connLevel.innerHTML = levelOptions(state.user.level === 'L3' ? 'L3' : 'L2');
+    const connFolder = $('#new-connector-folder');
+    if (connFolder) {
+      connFolder.innerHTML = (DB.connectorFolders || [])
+        .filter((folder) => folder.id !== 'cf0')
+        .map((folder) => {
+          const trail = Store.folderTrail(DB.connectorFolders, folder.id);
+          const label = new Array(trail.length).join('　') + folder.name;
+          return '<option value="' + folder.id + '">' + esc(label) + '</option>';
+        })
+        .join('') + '<option value="cf0">未分类</option>';
+    }
   }
 
   function applyPreviewParams() {
@@ -767,8 +889,17 @@
       navigate('knowledge');
     } else if (view === 'templates') {
       navigate('templates');
+    } else if (view === 'skills') {
+      navigate('skills');
+    } else if (view === 'connectors') {
+      navigate('connectors');
     } else if (view === 'home') {
       navigate('home');
+    }
+    const categoryParam = params.get('cnf') || params.get('category');
+    if (categoryParam && (DB.connectorFolders || []).some((folder) => folder.id === categoryParam)) {
+      state.connFolder = categoryParam;
+      if (state.view === 'connectors') renderConnectors();
     }
     const permissionParam = params.get('permission');
     if (permissionParam && PERMISSIONS.some((item) => item.id === permissionParam)) {
@@ -783,6 +914,14 @@
     if (params.get('dialog') === 'update') setTimeout(openUpdateDialog, 120);
     if (params.get('dialog') === 'messages') setTimeout(openMessageCenter, 120);
     if (params.get('dialog') === 'permission') setTimeout(openPermissionMenu, 120);
+    if (params.get('dialog') === 'create-skill') setTimeout(createSkillWithAgent, 140);
+    if (params.get('dialog') === 'skill-add') {
+      setTimeout(() => {
+        if (state.view !== 'skills') navigate('skills');
+        openSkillMenu();
+      }, 140);
+    }
+    if (params.get('dialog') === 'new-connector') setTimeout(openNewConnectorDialog, 140);
     if (params.get('dialog') === 'preview') {
       setTimeout(() => {
         const found = params.get('doc') ? findDoc(params.get('doc')) : null;
@@ -793,7 +932,14 @@
         }
       }, 80);
     }
-    if (params.get('plus') === '1') setTimeout(openPlus, 80);
+    const plusParam = params.get('plus');
+    if (plusParam === '1') setTimeout(openPlus, 80);
+    else if (plusParam) {
+      setTimeout(() => {
+        openPlus();
+        choosePlus(plusParam);
+      }, 120);
+    }
   }
 
   /* ------------------------------ 导航 ------------------------------ */
@@ -801,7 +947,7 @@
     const opts = options || {};
     if (!state.user) return;
     state.view = view;
-    ['home', 'chat', 'knowledge', 'templates'].forEach((name) => {
+    ['home', 'chat', 'knowledge', 'templates', 'skills', 'connectors'].forEach((name) => {
       const section = $('#view-' + name);
       if (section) section.hidden = name !== view;
     });
@@ -813,6 +959,8 @@
       renderKnowledge();
     }
     if (view === 'templates') renderTemplates();
+    if (view === 'skills') renderSkillsPage();
+    if (view === 'connectors') renderConnectors();
     if (view === 'home') {
       renderAgents();
       renderSuggestions();
@@ -852,6 +1000,14 @@
       eyebrow.textContent = '标准化工作方式';
       title.textContent = '文档模板';
       chip.hidden = true;
+    } else if (state.view === 'skills') {
+      eyebrow.textContent = '企业能力中心';
+      title.textContent = '技能';
+      chip.hidden = true;
+    } else if (state.view === 'connectors') {
+      eyebrow.textContent = '业务系统连接';
+      title.textContent = '连接器';
+      chip.hidden = true;
     }
   }
 
@@ -867,6 +1023,7 @@
 
   function closeAllOverlays() {
     closePlus();
+    closeSkillMenu();
     hideModelMenu();
     hideWorkspaceMenu();
     hidePermissionMenu();
@@ -1005,6 +1162,29 @@
   }
 
   /* ------------------------------ 加号菜单 ------------------------------ */
+  // 弹层统一锚定到触发按钮：左边缘与按钮左边缘齐平，优先在按钮正上方展开
+  function placeAnchoredMenu(menu, anchor, width) {
+    if (!menu || !anchor) return;
+    const gap = 10;
+    const edge = 8;
+    const rect = anchor.getBoundingClientRect();
+    const maxWidth = Math.max(160, window.innerWidth - edge * 2);
+    const menuWidth = Math.min(width, maxWidth);
+    menu.style.width = menuWidth + 'px';
+    // 水平方向：左边缘与按钮齐平，超出视口时向内收
+    const left = Math.max(edge, Math.min(rect.left, window.innerWidth - menuWidth - edge));
+    menu.style.left = left + 'px';
+    // 垂直方向：按钮上方装得下就向上展开，否则翻到按钮下方
+    const height = menu.offsetHeight;
+    const spaceAbove = rect.top - gap - edge;
+    const spaceBelow = window.innerHeight - rect.bottom - gap - edge;
+    const up = height <= spaceAbove || spaceAbove >= spaceBelow;
+    const top = up
+      ? Math.max(edge, rect.top - gap - height)
+      : Math.max(edge, Math.min(rect.bottom + gap, window.innerHeight - height - edge));
+    menu.style.top = top + 'px';
+    menu.style.transformOrigin = up ? 'bottom left' : 'top left';
+  }
   function openPlus() {
     if (state.view !== 'home' && state.view !== 'chat') return;
     hidePermissionMenu();
@@ -1012,12 +1192,13 @@
     dom.plus.hidden = false;
     dom.addBtn.classList.add('is-open');
     dom.addBtn.setAttribute('aria-expanded', 'true');
+    placeAnchoredMenu(dom.plus, dom.addBtn, 286);
   }
   function closePlus() {
     state.plusOpen = false;
     state.submenuKind = null;
     state.submenuAnchor = null;
-    if (dom.plus) dom.plus.hidden = true;
+    if (dom.plus) { dom.plus.hidden = true; dom.plus.removeAttribute('style'); }
     if (dom.submenu) dom.submenu.hidden = true;
     if (dom.addBtn) {
       dom.addBtn.classList.remove('is-open');
@@ -1050,6 +1231,61 @@
     showSubmenu(kind, anchor);
   }
 
+  function connectorRowHtml(item) {
+    const on = connectorOn(item);
+    const configured = connectorConfigured(item);
+    const added = configured && on && state.attachments.some((att) => att.key === 'connector:' + item.id);
+    return '<div class="conn-row' + (added ? ' is-added' : '') + (configured && !on ? ' is-off' : '') + '" data-conn-row="' + item.id + '" data-name="' + esc((item.name + ' ' + connectorPathText(item) + ' ' + (item.desc || '')).toLowerCase()) + '">' +
+      '<button type="button" class="conn-row-main" data-conn-main="' + item.id + '" title="' +
+        (!configured ? '点击连接 ' + esc(item.name)
+          : (on ? '点击带入当前会话（已添加时再点可移出）' : esc(item.name) + ' 已关闭，打开右侧开关后可带入会话')) + '">' +
+        connectorTile(item) +
+        '<b>' + esc(item.name) + '</b>' +
+      '</button>' +
+      (configured ? connectorSwitch(item) : connectorConnectBtn(item)) +
+    '</div>';
+  }
+
+  function paintConnectorMenu() {
+    const list = $('#conn-menu-list');
+    if (!list) return;
+    const input = $('#conn-menu-search');
+    const query = (input ? input.value : '').trim().toLowerCase();
+    let items = visibleConnectors();
+    if (query) {
+      items = items.filter((item) => (item.name + ' ' + connectorPathText(item) + ' ' + (item.desc || '')).toLowerCase().includes(query));
+    }
+    /* 稳定分组：已开启 → 已配置待开启 → 未配置；组内保持原有顺序 */
+    const group = (item) => (connectorOn(item) ? 0 : (connectorConfigured(item) ? 1 : 2));
+    items = items.slice().sort((a, b) => group(a) - group(b));
+    list.innerHTML = items.length ? items.map(connectorRowHtml).join('') : '<div class="sub-empty">没有匹配的连接器</div>';
+  }
+
+  function addConnectorToSession(connector) {
+    const added = !state.attachments.some((item) => item.key === 'connector:' + connector.id);
+    toggleAttachment({ key: 'connector:' + connector.id, kind: 'connector', name: connector.name, level: connector.level, meta: '连接器' });
+    closePlus();
+    toast(added ? '已添加连接器：' + connector.name : '已移除连接器：' + connector.name);
+  }
+
+  function toggleConnectorStatus(id) {
+    const connector = (DB.connectors || []).find((item) => item.id === id);
+    if (!connector) return;
+    setConnectorStatus(id, !connectorOn(connector));
+    /* 原位更新：开关只切换开启状态，列表位置不变 */
+    refreshConnectorToggle(id);
+  }
+
+  function connectConnector(id) {
+    const connector = setConnectorStatus(id, true, { quiet: true });
+    if (!connector) return;
+    connector.configured = true;
+    Store.save();
+    toast('已连接：' + connector.name + '，可在会话中直接调用');
+    if (state.view === 'connectors') paintConnectorCards();
+    paintConnectorMenu();
+  }
+
   function showSubmenu(kind, anchor) {
     clearTimeout(submenuTimer);
     state.submenuKind = kind;
@@ -1066,37 +1302,46 @@
             icon('chevron-right') +
           '</button>' +
         '</div>';
+    } else if (kind === 'connectors') {
+      dom.submenu.className = 'attach-submenu is-connectors';
+      dom.submenu.innerHTML =
+        '<div class="conn-menu">' +
+          '<label class="conn-menu-search">' + icon('search') +
+            '<input type="search" id="conn-menu-search" placeholder="搜索连接器" spellcheck="false" autocomplete="off">' +
+          '</label>' +
+          '<div class="conn-menu-list" id="conn-menu-list"></div>' +
+          '<button type="button" class="conn-menu-foot" data-sub-action="manage-connectors">' +
+            icon('arrow-up', 'conn-foot-ico') + '管理连接器' +
+          '</button>' +
+        '</div>';
+      const connInput = $('#conn-menu-search');
+      if (connInput) connInput.addEventListener('input', () => paintConnectorMenu());
+      paintConnectorMenu();
     } else {
+      /* 技能：搜索 + 已集成技能 + 从本地添加 / 管理技能 */
       dom.submenu.className = 'attach-submenu';
-      const isSkill = kind === 'skills';
-      const source = isSkill ? DB.skills : DB.connectors;
-      const available = source.filter((item) => Store.canSee(state.user.level, item.level) && (!isSkill || item.status === '启用'));
-      const label = isSkill ? '技能' : '连接器';
-      const rows = available.map((item) => {
-        const added = state.attachments.some((att) => att.key === (isSkill ? 'skill:' : 'connector:') + item.id);
-        const actionAttr = isSkill ? 'data-pick-skill="' + item.id + '"' : 'data-pick-connector="' + item.id + '"';
-        const status = isSkill ? (item.category + ' · v' + item.version) : item.category;
-        const statusTail = isSkill ? '' : '<span class="sub-status' + (item.status === '已连接' ? '' : ' is-off') + '">' + esc(item.status) + '</span>';
-        return '<button type="button" class="sub-row' + (added ? ' is-added' : '') + '" ' + actionAttr + ' data-name="' + esc((item.name + item.desc + status).toLowerCase()) + '">' +
-          '<span class="sub-ico">' + icon(isSkill ? 'sparkles' : 'link') + '</span>' +
-          '<span class="sub-copy"><b>' + esc(item.name) + '</b><small>' + esc(item.desc || status) + '</small></span>' +
-          statusTail +
-          levelBadge(item.level) +
+      const rows = visibleSkills().map((skill) => {
+        const added = state.attachments.some((att) => att.key === 'skill:' + skill.id);
+        const status = skillPathText(skill) + ' · v' + skill.version;
+        return '<button type="button" class="sub-row' + (added ? ' is-added' : '') + '" data-pick-skill="' + skill.id + '" data-name="' + esc((skill.name + skill.desc + status).toLowerCase()) + '">' +
+          '<span class="sub-ico">' + icon('sparkles') + '</span>' +
+          '<span class="sub-copy"><b>' + esc(skill.name) + '</b><small>' + esc(skill.desc || status) + '</small></span>' +
+          levelBadge(skill.level) +
         '</button>';
       }).join('');
       dom.submenu.innerHTML =
-        '<div class="sub-head"><b>' + label + '</b><small>按密级展示</small></div>' +
-        '<label class="sub-search">' + icon('search') + '<input type="search" id="sub-' + kind + '-search" placeholder="搜索' + label + '" spellcheck="false"></label>' +
-        '<div class="sub-list" id="sub-' + kind + '-list">' + (rows || '<div class="sub-empty">没有匹配的' + label + '</div>') + '</div>' +
+        '<div class="sub-head"><b>技能</b><small>按密级展示</small></div>' +
+        '<label class="sub-search">' + icon('search') + '<input type="search" id="sub-skills-search" placeholder="搜索技能" spellcheck="false"></label>' +
+        '<div class="sub-list" id="sub-skills-list">' + (rows || '<div class="sub-empty">没有匹配的技能</div>') + '</div>' +
         '<div class="sub-foot">' +
-          '<button type="button" data-sub-action="' + (isSkill ? 'add-local-skill' : 'manage-connectors') + '">' + icon(isSkill ? 'upload' : 'grid') + (isSkill ? '从本地添加技能' : '管理连接器') + '</button>' +
-          (isSkill ? '<button type="button" data-sub-action="manage-skills">' + icon('settings') + '管理技能</button>' : '') +
+          '<button type="button" data-sub-action="add-local-skill">' + icon('upload') + '从本地添加技能</button>' +
+          '<button type="button" data-sub-action="manage-skills">' + icon('settings') + '管理技能</button>' +
         '</div>';
-      const input = $('#sub-' + kind + '-search');
+      const input = $('#sub-skills-search');
       if (input) {
         input.addEventListener('input', () => {
           const query = input.value.trim().toLowerCase();
-          $$('#' + 'sub-' + kind + '-list .sub-row').forEach((row) => {
+          $$('#sub-skills-list .sub-row').forEach((row) => {
             row.style.display = !query || row.dataset.name.includes(query) ? '' : 'none';
           });
         });
@@ -1108,10 +1353,11 @@
 
   function positionSubmenu(anchor) {
     const rect = anchor.getBoundingClientRect();
+    const menuRect = dom.plus && !dom.plus.hidden ? dom.plus.getBoundingClientRect() : rect;
     const width = dom.submenu.offsetWidth;
     const height = dom.submenu.offsetHeight;
-    let left = rect.right + 10;
-    if (left + width > window.innerWidth - 12) left = Math.max(12, rect.left - width - 10);
+    let left = Math.max(rect.right, menuRect.right) + 8;
+    if (left + width > window.innerWidth - 12) left = Math.max(12, Math.min(rect.left, menuRect.left) - width - 8);
     let top = rect.top - 10;
     if (top + height > window.innerHeight - 12) top = window.innerHeight - height - 12;
     if (top < 12) top = 12;
@@ -1140,6 +1386,30 @@
     dom.modelName.textContent = model.name;
     dom.modelCtx.textContent = model.context;
   }
+  function placeModelMenu() {
+    if (!dom.modelMenu || dom.modelMenu.hidden) return;
+    const btn = dom.modelBtn.getBoundingClientRect();
+    const gap = 6;
+    const edge = 8;
+    const width = Math.min(308, window.innerWidth - edge * 2);
+    dom.modelMenu.style.width = width + 'px';
+    // 水平方向：右边缘与模型按钮对齐，并限制在视口内
+    let left = btn.right - width;
+    left = Math.max(edge, Math.min(left, window.innerWidth - width - edge));
+    dom.modelMenu.style.left = left + 'px';
+    // 垂直方向：按钮下方装得下就向下展开，装不下才翻到上方
+    const height = dom.modelMenu.offsetHeight;
+    const spaceBelow = window.innerHeight - btn.bottom - gap - edge;
+    const spaceAbove = btn.top - gap - edge;
+    const down = height <= spaceBelow + 32 || spaceBelow >= spaceAbove;
+    const room = Math.max(160, down ? spaceBelow : spaceAbove);
+    dom.modelMenu.style.maxHeight = room + 'px';
+    let top = down ? btn.bottom + gap : btn.top - gap - Math.min(height, room);
+    top = Math.max(edge, Math.min(top, window.innerHeight - Math.min(height, room) - edge));
+    dom.modelMenu.style.top = top + 'px';
+    dom.modelMenu.style.transformOrigin = down ? 'top right' : 'bottom right';
+    dom.modelMenu.style.animationName = down ? 'popIn' : 'popInUp';
+  }
   function toggleModelMenu() {
     if (!dom.modelMenu.hidden) { hideModelMenu(); return; }
     hidePermissionMenu();
@@ -1154,11 +1424,15 @@
       ).join('') +
       '<div class="model-menu-foot">模型可用范围由管理端「模型管理」统一配置</div>';
     dom.modelMenu.hidden = false;
+    dom.modelBtn.classList.add('is-open');
     dom.modelBtn.setAttribute('aria-expanded', 'true');
+    placeModelMenu();
   }
   function hideModelMenu() {
     if (!dom.modelMenu) return;
     dom.modelMenu.hidden = true;
+    dom.modelMenu.removeAttribute('style');
+    dom.modelBtn.classList.remove('is-open');
     dom.modelBtn.setAttribute('aria-expanded', 'false');
   }
 
@@ -1254,14 +1528,7 @@
       '<div class="permission-note">' + icon('folder') + '当前工作目录：' + esc(workspaceName(state.workspace)) + '</div>';
   }
   function placePermissionMenu() {
-    const composerRect = dom.composer.getBoundingClientRect();
-    const btnRect = dom.permissionBtn.getBoundingClientRect();
-    const edge = 8;
-    const width = Math.min(316, Math.max(200, composerRect.width - edge * 2));
-    dom.permissionMenu.style.width = width + 'px';
-    let left = btnRect.left - composerRect.left;
-    left = Math.max(edge, Math.min(left, composerRect.width - width - edge));
-    dom.permissionMenu.style.left = left + 'px';
+    placeAnchoredMenu(dom.permissionMenu, dom.permissionBtn, 316);
   }
   function openPermissionMenu() {
     if (!dom.permissionMenu || !dom.permissionMenu.hidden || dom.composer.hidden) return;
@@ -1709,10 +1976,16 @@
     dom.workspaceDirInput.addEventListener('change', handleWorkspaceDirChange);
     window.addEventListener('resize', hideWorkspaceMenu);
     window.addEventListener('resize', hidePermissionMenu);
+    window.addEventListener('resize', hideModelMenu);
     const viewScroll = $('#view-scroll');
     if (viewScroll) viewScroll.addEventListener('scroll', () => {
       if (!dom.workspaceMenu.hidden) hideWorkspaceMenu();
       if (!dom.permissionMenu.hidden) hidePermissionMenu();
+      if (!dom.modelMenu.hidden) hideModelMenu();
+    }, { passive: true });
+    const chatScroll = $('#chat-scroll');
+    if (chatScroll) chatScroll.addEventListener('scroll', () => {
+      if (!dom.modelMenu.hidden) hideModelMenu();
     }, { passive: true });
     $('#local-file-input').addEventListener('change', (event) => {
       const files = Array.from(event.target.files || []);
@@ -1727,6 +2000,11 @@
         });
       });
       if (files.length) toast(files.length + ' 个本地文件已添加');
+      event.target.value = '';
+    });
+    $('#skill-pkg-input').addEventListener('change', (event) => {
+      const file = (event.target.files || [])[0];
+      installSkillPackage(file);
       event.target.value = '';
     });
   }
@@ -1764,14 +2042,17 @@
         }
         return;
       }
-      const connectorRow = event.target.closest('[data-pick-connector]');
-      if (connectorRow) {
-        const connector = DB.connectors.find((item) => item.id === connectorRow.dataset.pickConnector);
+      const connToggle = event.target.closest('[data-conn-toggle]');
+      if (connToggle) { toggleConnectorStatus(connToggle.dataset.connToggle); return; }
+      const connConnect = event.target.closest('[data-conn-connect]');
+      if (connConnect) { connectConnector(connConnect.dataset.connConnect); return; }
+      const connMain = event.target.closest('[data-conn-main]');
+      if (connMain) {
+        const connector = (DB.connectors || []).find((item) => item.id === connMain.dataset.connMain);
         if (connector) {
-          const added = !state.attachments.some((item) => item.key === 'connector:' + connector.id);
-          toggleAttachment({ key: 'connector:' + connector.id, kind: 'connector', name: connector.name, level: connector.level, meta: '连接器' });
-          closePlus();
-          toast(added ? '已添加连接器：' + connector.name : '已移除连接器：' + connector.name);
+          if (!connectorConfigured(connector)) connectConnector(connector.id);
+          else if (connectorOn(connector)) addConnectorToSession(connector);
+          else toast(connector.name + ' 已关闭，打开右侧开关后再带入会话');
         }
         return;
       }
@@ -1837,6 +2118,30 @@
       }
       const useTpl = event.target.closest('[data-use-tpl]');
       if (useTpl) { useTemplate(useTpl.dataset.useTpl); return; }
+      const skillPick = event.target.closest('[data-skill-add-id]');
+      if (skillPick) { addSkillFromPage(skillPick.dataset.skillAddId); return; }
+      const skillMenuAction = event.target.closest('[data-skill-add]');
+      if (skillMenuAction) {
+        const kind = skillMenuAction.dataset.skillAdd;
+        if (kind === 'upload') pickSkillPackage();
+        else if (kind === 'create') createSkillWithAgent();
+        return;
+      }
+      const skillDir = event.target.closest('[data-skf]');
+      if (skillDir) {
+        state.skillFolder = skillDir.dataset.skf;
+        state.skillQuery = '';
+        renderSkillsPage();
+        return;
+      }
+      const connDir = event.target.closest('[data-cnf]');
+      if (connDir) {
+        state.connFolder = connDir.dataset.cnf;
+        state.connQuery = '';
+        renderConnectors();
+        return;
+      }
+      if (!event.target.closest('.add-skill-wrap')) closeSkillMenu();
       const cite = event.target.closest('[data-cite]');
       if (cite) {
         const text = cite.dataset.cite;
@@ -1875,6 +2180,12 @@
       } else if (id === 'tpl-search') {
         state.tplQuery = event.target.value;
         paintTplRows();
+      } else if (id === 'skill-search') {
+        state.skillQuery = event.target.value;
+        paintSkillCards();
+      } else if (id === 'conn-search') {
+        state.connQuery = event.target.value;
+        paintConnectorCards();
       } else if (id === 'kb-picker-search') {
         state.picker.query = event.target.value;
         renderKbPicker(true);
@@ -2027,6 +2338,9 @@
       case 'new-template': openNewTemplateDialog(); break;
       case 'edit-template': openNewTemplateDialog(el.dataset.id); break;
       case 'tpl-new-folder': openNewFolderDialog('tpl'); break;
+      case 'toggle-skill-add': toggleSkillMenu(); break;
+      case 'new-connector': openNewConnectorDialog(); break;
+      case 'close-new-connector': closeDialog($('#new-connector-dialog')); break;
       case 'close-preview': closeDialog(dom.preview); break;
       case 'preview-use-template': usePreviewTemplate(); break;
       case 'copy-answer':
@@ -2053,13 +2367,14 @@
       openKbPicker();
     } else if (action === 'manage-skills') {
       closePlus();
-      toast('管理技能：客户端已集成 10 个技能（演示）');
+      navigate('skills');
     } else if (action === 'add-local-skill') {
       closePlus();
-      toast('从本地添加技能：选择 .skill 包后自动安装（演示）');
+      pickSkillPackage();
     } else if (action === 'manage-connectors') {
       closePlus();
-      toast('已打开连接器管理（演示）');
+      state.connQuery = '';
+      navigate('connectors');
     }
   }
 
@@ -2176,6 +2491,49 @@
       $('#template-file-name').hidden = true;
       renderTemplates();
       toast('模板已保存：' + name);
+    });
+
+    const connForm = $('#new-connector-form');
+    connForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const name = fieldOf(form, 'name').value.trim();
+      if (!name) { toast('请填写连接器名称'); fieldOf(form, 'name').focus(); return; }
+      const endpoint = fieldOf(form, 'endpoint').value.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      if (!endpoint) { toast('请填写接入地址'); fieldOf(form, 'endpoint').focus(); return; }
+      if ((DB.connectors || []).some((item) => item.name === name)) {
+        toast('已存在同名连接器，换个名称试试');
+        fieldOf(form, 'name').focus();
+        return;
+      }
+      const folderId = (fieldOf(form, 'folder') ? fieldOf(form, 'folder').value : '') || 'cf0';
+      const folder = (DB.connectorFolders || []).find((item) => item.id === folderId);
+      const connector = {
+        id: 'conn-' + Date.now(),
+        name: name,
+        folder: folder ? folder.id : 'cf0',
+        category: folder ? folder.name : '未分类',
+        level: fieldOf(form, 'level').value,
+        configured: true,
+        status: '已连接',
+        endpoint: endpoint,
+        desc: fieldOf(form, 'desc').value.trim() || '自定义接入的业务系统',
+        auth: fieldOf(form, 'auth').value,
+        brand: '#5b7cfa',
+        mark: 'link',
+        custom: true,
+        owner: state.user.name,
+        connectedAt: today() + ' ' + nowTime()
+      };
+      DB.connectors.unshift(connector);
+      Store.save();
+      closeDialog($('#new-connector-dialog'));
+      form.reset();
+      state.connQuery = '';
+      state.connFolder = connector.folder;
+      if (state.view === 'connectors') renderConnectors();
+      else navigate('connectors');
+      toast('自定义连接器已创建：' + name);
     });
 
     const templateInput = $('#template-file');
@@ -2966,6 +3324,412 @@
     }
     openDialog($('#new-template-dialog'));
     setTimeout(() => fieldOf(form, 'name').focus(), 60);
+  }
+
+  /* ============================== 技能页面 ============================== */
+  function visibleSkills() {
+    return (DB.skills || []).filter((item) => item.status === '启用' && Store.canSee(state.user.level, item.level));
+  }
+  function skillFolderOf(skill) {
+    return (DB.skillFolders || []).find((folder) => folder.id === (skill && skill.folder)) || null;
+  }
+  function skillTrail(skill) {
+    const folder = skillFolderOf(skill);
+    return folder ? Store.folderTrail(DB.skillFolders, folder.id) : [];
+  }
+  function skillPathText(skill) {
+    const trail = skillTrail(skill);
+    return trail.length ? trail.map((item) => item.name).join(' / ') : '未分类';
+  }
+  function skillFolderIds(folderId) {
+    if (folderId === 'all') return null;
+    return new Set([folderId].concat(Store.descendants(DB.skillFolders, folderId).map((folder) => folder.id)));
+  }
+  function skillsInSkillFolder(folderId, list) {
+    const source = list || visibleSkills();
+    const ids = skillFolderIds(folderId);
+    return ids ? source.filter((item) => ids.has(item.folder)) : source;
+  }
+  function skillTone(name) {
+    const tones = ['tone-blue', 'tone-amber', 'tone-emerald', 'tone-violet'];
+    let sum = 0;
+    for (let index = 0; index < String(name || '').length; index += 1) sum += name.charCodeAt(index);
+    return tones[sum % tones.length];
+  }
+  function sortSkills(list) {
+    return list.slice().sort((a, b) => (Number(!!b.featured) - Number(!!a.featured)) || (b.runs || 0) - (a.runs || 0));
+  }
+
+  function skillAddButton(skill, extraClass) {
+    const added = state.attachments.some((item) => item.key === 'skill:' + skill.id);
+    return '<button type="button" class="skill-add-btn' + (added ? ' is-added' : '') + (extraClass ? ' ' + extraClass : '') + '" data-skill-add-id="' + skill.id + '" title="' +
+      (added ? '已添加到当前会话' : '添加到当前会话') + '" aria-label="' + (added ? '移除 ' : '添加 ') + esc(skill.name) + '">' +
+      icon(added ? 'check' : 'plus') + '</button>';
+  }
+
+  function renderSkillsPage() {
+    if (!state.user) return;
+    const all = visibleSkills();
+    const everySkill = DB.skills || [];
+    const hiddenLevel = everySkill.filter((item) => !Store.canSee(state.user.level, item.level)).length;
+    const disabled = everySkill.filter((item) => Store.canSee(state.user.level, item.level) && item.status !== '启用').length;
+    const navCount = $('#nav-skill-count');
+    if (navCount) navCount.textContent = all.length;
+    const level = Store.level(state.user.level);
+
+    if (state.skillFolder !== 'all' && !(DB.skillFolders || []).some((folder) => folder.id === state.skillFolder)) {
+      state.skillFolder = 'all';
+    }
+    const active = state.skillFolder === 'all' ? null : (DB.skillFolders || []).find((folder) => folder.id === state.skillFolder);
+    const activeTop = active ? (active.parent ? (DB.skillFolders || []).find((folder) => folder.id === active.parent) : active) : null;
+    const topFolders = (DB.skillFolders || []).filter((folder) => !folder.parent && folder.id !== 'sf0');
+    const children = activeTop ? (DB.skillFolders || []).filter((folder) => folder.parent === activeTop.id) : [];
+
+    const dirTabs = '<button type="button" class="skill-dir-tab' + (!activeTop ? ' is-active' : '') + '" data-skf="all">全部</button>' +
+      topFolders.map((folder) =>
+        '<button type="button" class="skill-dir-tab' + (activeTop && activeTop.id === folder.id ? ' is-active' : '') + '" data-skf="' + folder.id + '">' +
+          esc(folder.name) + '<span>' + skillsInSkillFolder(folder.id, all).length + '</span>' +
+        '</button>'
+      ).join('');
+    const subTabs = children.length
+      ? '<div class="skill-subdirs">' +
+          '<button type="button" class="skill-subdir' + (active && active.id === activeTop.id ? ' is-active' : '') + '" data-skf="' + activeTop.id + '">全部</button>' +
+          children.map((folder) =>
+            '<button type="button" class="skill-subdir' + (active && active.id === folder.id ? ' is-active' : '') + '" data-skf="' + folder.id + '">' +
+              esc(folder.name) + '</button>'
+          ).join('') +
+        '</div>'
+      : '';
+
+    $('#skills-root').innerHTML =
+      '<div class="page skill-page">' +
+        '<div class="page-head">' +
+          '<div>' +
+            '<div class="page-kicker">SKILL CENTER</div>' +
+            '<h1>技能</h1>' +
+            '<p>这里展示管理端预集成并授权给你的专业技能。点击卡片右上角的「+」即可带入当前会话，也可以上传或创建自己的技能。</p>' +
+          '</div>' +
+          '<div class="page-actions">' +
+            '<label class="search-field">' + icon('search') + '<input type="search" id="skill-search" placeholder="搜索技能、目录" value="' + esc(state.skillQuery) + '" spellcheck="false"></label>' +
+            '<span class="skill-integrated">' + icon('check-circle') + '已集成 <b>' + all.length + '</b></span>' +
+            '<div class="add-skill-wrap">' +
+              '<button type="button" id="skill-add-btn" class="btn btn-primary" data-action="toggle-skill-add" aria-haspopup="menu" aria-expanded="false">' +
+                icon('plus') + '添加技能' + icon('chevron-down', 'tiny') +
+              '</button>' +
+              '<div class="add-skill-menu" id="skill-add-menu" role="menu" hidden>' +
+                '<button type="button" role="menuitem" data-skill-add="upload">' + icon('upload') + '上传技能</button>' +
+                '<button type="button" role="menuitem" data-skill-add="create">' + icon('sparkles') + '创建技能</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<section class="skill-market" id="skill-market">' +
+          '<div class="skill-section-head">' +
+            '<div><h2>推荐</h2><p>全部由管理端预集成，按目录与密级开放</p></div>' +
+          '</div>' +
+          '<div class="skill-dirs">' + dirTabs + '</div>' +
+          subTabs +
+          '<div class="skill-grid" id="skill-grid"></div>' +
+          '<div id="skill-empty" hidden></div>' +
+        '</section>' +
+
+        (hiddenLevel || disabled
+          ? '<div class="filtered-note">' + icon('shield') +
+              '按密级与状态过滤：另有 <b>' + hiddenLevel + '</b> 个技能高于你的账号密级（' + level.name + '级）' +
+              (disabled ? '、<b>' + disabled + '</b> 个技能已停用' : '') + '，未在当前页面展示。' +
+            '</div>'
+          : '') +
+      '</div>';
+    paintSkillCards();
+  }
+
+  function paintSkillCards() {
+    const grid = $('#skill-grid');
+    if (!grid) return;
+    const query = state.skillQuery.trim().toLowerCase();
+    let list = skillsInSkillFolder(state.skillFolder);
+    if (query) {
+      list = list.filter((item) => (item.name + ' ' + (item.desc || '') + ' ' + skillPathText(item)).toLowerCase().includes(query));
+    }
+    list = sortSkills(list);
+    grid.innerHTML = list.map((skill) => {
+      const folder = skillFolderOf(skill);
+      return '<article class="skill-card">' +
+        '<div class="skill-card-top">' +
+          '<span class="skill-ico ' + skillTone(skill.name) + '">' + esc(String(skill.name || '').slice(0, 1)) + '</span>' +
+          skillAddButton(skill) +
+        '</div>' +
+        '<h3>' + esc(skill.name) + (skill.local ? '<span class="skill-local">本地</span>' : '') + '</h3>' +
+        '<p>' + esc(skill.desc || '') + '</p>' +
+        '<div class="skill-card-meta">' +
+          '<span>' + icon('sparkles') + Number(skill.runs || 0).toLocaleString('zh-CN') + ' 次</span>' +
+          '<span>v' + esc(skill.version) + '</span>' +
+        '</div>' +
+        '<div class="skill-card-foot">' +
+          '<span class="skill-dir" title="' + esc(skillPathText(skill)) + '">' + icon('folder') + esc(folder ? folder.name : '未分类') + '</span>' +
+          levelBadge(skill.level) +
+        '</div>' +
+      '</article>';
+    }).join('');
+    const empty = $('#skill-empty');
+    if (empty) {
+      if (!list.length) {
+        empty.hidden = false;
+        empty.innerHTML = '<div class="empty-state"><span class="empty-ico">' + icon('sparkles') + '</span>' +
+          '<h3>没有找到技能</h3>' +
+          '<p>' + (query ? '换个关键词，或切换到其他目录看看。' : '该目录下暂无技能，可以上传或创建技能。') + '</p></div>';
+      } else {
+        empty.hidden = true;
+      }
+    }
+  }
+
+  function openSkillMenu() {
+    const menu = $('#skill-add-menu');
+    if (!menu) return;
+    state.skillMenuOpen = true;
+    menu.hidden = false;
+    const btn = $('#skill-add-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  }
+  function closeSkillMenu() {
+    state.skillMenuOpen = false;
+    const menu = $('#skill-add-menu');
+    if (menu) menu.hidden = true;
+    const btn = $('#skill-add-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+  function toggleSkillMenu() {
+    if (state.skillMenuOpen) closeSkillMenu();
+    else openSkillMenu();
+  }
+
+  function pickSkillPackage() {
+    closeSkillMenu();
+    const input = $('#skill-pkg-input');
+    if (input) input.click();
+  }
+
+  function installSkillPackage(file) {
+    if (!file) return;
+    const ext = extOf(file.name);
+    if (!['zip', 'skill'].includes(ext)) {
+      toast('技能包仅支持 .zip / .skill 格式');
+      return;
+    }
+    if (file.size > 200 * 1024 * 1024) {
+      toast('单个技能包不超过 200 MB');
+      return;
+    }
+    const base = String(file.name).replace(/\.(zip|skill)$/i, '').replace(/[\s._-]*v?\d+(?:\.\d+){1,3}$/i, '').trim();
+    const matched = String(file.name).match(/v?(\d+(?:\.\d+){1,3})(?=\.(?:zip|skill)$)/i);
+    const name = base || '本地技能';
+    DB.skills.push({
+      id: 'skill-local-' + Date.now(),
+      name: name,
+      folder: 'sf0',
+      category: '未分类',
+      level: state.user.level,
+      version: matched ? matched[1] : '1.0.0',
+      status: '启用',
+      desc: '本机上传的技能包，仅在当前设备可用',
+      runs: 0,
+      local: true,
+      pkg: { name: file.name, size: formatSize(file.size), uploaded: today() + ' ' + nowTime() }
+    });
+    Store.save();
+    state.skillFolder = 'sf0';
+    state.skillQuery = '';
+    renderSkillsPage();
+    toast('技能包已安装：' + name + '（本地技能）');
+  }
+
+  function createSkillWithAgent() {
+    closeSkillMenu();
+    if (!state.attachments.some((item) => item.key === 'skill:skill-creator')) {
+      addAttachment({
+        key: 'skill:skill-creator', kind: 'skill', name: 'skill-creator',
+        level: 'L1', meta: '技能', path: '内置技能 · 创建技能'
+      });
+    }
+    navigate('home');
+    setPrompt('请帮我创建一个可以实现「……」的 skill', true);
+    toast('已进入创建技能模式，补全「……」后发送即可');
+  }
+
+  function addSkillFromPage(id) {
+    const skill = (DB.skills || []).find((item) => item.id === id);
+    if (!skill) return;
+    if (!Store.canSee(state.user.level, skill.level)) {
+      toast('该技能密级高于你的账号密级');
+      return;
+    }
+    const key = 'skill:' + skill.id;
+    const added = !state.attachments.some((item) => item.key === key);
+    toggleAttachment({ key: key, kind: 'skill', name: skill.name, level: skill.level, meta: '技能', path: skillPathText(skill) });
+    toast(added ? '已添加技能：' + skill.name : '已移除技能：' + skill.name);
+    $$('[data-skill-add-id="' + id + '"]').forEach((btn) => {
+      btn.classList.toggle('is-added', added);
+      btn.innerHTML = icon(added ? 'check' : 'plus');
+      btn.title = added ? '已添加到当前会话' : '添加到当前会话';
+    });
+  }
+
+  /* ============================== 连接器页 ============================== */
+  /* 分类：与技能目录同构的两级结构，展示方式与技能页保持一致 */
+  function connectorFolderOf(item) {
+    return (DB.connectorFolders || []).find((folder) => folder.id === (item && item.folder)) || null;
+  }
+  function connectorPathText(item) {
+    const folder = connectorFolderOf(item);
+    return folder ? Store.folderTrail(DB.connectorFolders, folder.id).map((node) => node.name).join(' / ') : '未分类';
+  }
+  function connectorFolderIds(folderId) {
+    if (folderId === 'all') return null;
+    return new Set([folderId].concat(Store.descendants(DB.connectorFolders, folderId).map((folder) => folder.id)));
+  }
+  function connectorsInFolder(folderId, list) {
+    const source = list || visibleConnectors();
+    const ids = connectorFolderIds(folderId);
+    return ids ? source.filter((item) => ids.has(item.folder)) : source;
+  }
+
+  function connectorAddBtn(item) {
+    return '<button type="button" class="conn-add" data-conn-connect="' + item.id + '" title="连接 ' + esc(item.name) + '"' +
+      ' aria-label="连接 ' + esc(item.name) + '">' + icon('plus') + '</button>';
+  }
+
+  function connectorCardHtml(item) {
+    const on = connectorOn(item);
+    const configured = connectorConfigured(item);
+    const endpoint = String(item.endpoint || '').replace(/^https?:\/\//i, '');
+    const path = connectorPathText(item);
+    return '<article class="conn-card' + (on ? ' is-on' : '') + (configured && !on ? ' is-off' : '') + '" data-conn-card="' + item.id + '" data-name="' +
+      esc((item.name + ' ' + path + ' ' + (item.desc || '') + ' ' + endpoint).toLowerCase()) + '">' +
+      '<div class="conn-card-head">' +
+        connectorTile(item, 'lg') +
+        '<div class="conn-card-copy">' +
+          '<h3>' + esc(item.name) + (item.custom ? '<span class="conn-custom">自定义</span>' : '') + '</h3>' +
+          '<small title="' + esc(path) + '">' + esc(path) + '</small>' +
+        '</div>' +
+        (configured ? connectorSwitch(item) : connectorAddBtn(item)) +
+      '</div>' +
+      '<p>' + esc(item.desc || '暂无说明') + '</p>' +
+      '<div class="conn-card-foot">' +
+        '<span class="conn-endpoint" title="' + esc(endpoint) + '">' + icon('link') + esc(endpoint || '—') + '</span>' +
+        levelBadge(item.level) +
+      '</div>' +
+    '</article>';
+  }
+
+  function renderConnectors() {
+    if (!state.user) return;
+    const all = visibleConnectors();
+    const hidden = (DB.connectors || []).filter((item) => !Store.canSee(state.user.level, item.level)).length;
+    const level = Store.level(state.user.level);
+    syncConnNav();
+    const root = $('#connectors-root');
+    if (!root) return;
+
+    if (state.connFolder !== 'all' && !(DB.connectorFolders || []).some((folder) => folder.id === state.connFolder)) {
+      state.connFolder = 'all';
+    }
+    const active = state.connFolder === 'all' ? null : (DB.connectorFolders || []).find((folder) => folder.id === state.connFolder);
+    const activeTop = active ? (active.parent ? (DB.connectorFolders || []).find((folder) => folder.id === active.parent) : active) : null;
+    const topFolders = (DB.connectorFolders || []).filter((folder) => !folder.parent && folder.id !== 'cf0');
+    const children = activeTop ? (DB.connectorFolders || []).filter((folder) => folder.parent === activeTop.id) : [];
+
+    const dirTabs = '<button type="button" class="skill-dir-tab' + (!activeTop ? ' is-active' : '') + '" data-cnf="all">全部<span>' + all.length + '</span></button>' +
+      topFolders.map((folder) =>
+        '<button type="button" class="skill-dir-tab' + (activeTop && activeTop.id === folder.id ? ' is-active' : '') + '" data-cnf="' + folder.id + '" title="' + esc(folder.desc || folder.name) + '">' +
+          esc(folder.name) + '<span>' + connectorsInFolder(folder.id, all).length + '</span>' +
+        '</button>'
+      ).join('');
+    const subTabs = children.length
+      ? '<div class="skill-subdirs">' +
+          '<button type="button" class="skill-subdir' + (active && active.id === activeTop.id ? ' is-active' : '') + '" data-cnf="' + activeTop.id + '">全部</button>' +
+          children.map((folder) =>
+            '<button type="button" class="skill-subdir' + (active && active.id === folder.id ? ' is-active' : '') + '" data-cnf="' + folder.id + '" title="' + esc(folder.desc || folder.name) + '">' +
+              esc(folder.name) +
+            '</button>'
+          ).join('') +
+        '</div>'
+      : '';
+
+    root.innerHTML =
+      '<div class="page conn-page">' +
+        '<div class="page-head">' +
+          '<div>' +
+            '<div class="page-kicker">CONNECTOR HUB</div>' +
+            '<h1>连接器</h1>' +
+            '<p>这里展示管理端预置并授权给你的业务系统连接。开启后可在会话中直接调用，关闭后不再读取任何业务数据；也可以自定义接入内部系统。</p>' +
+          '</div>' +
+          '<div class="page-actions">' +
+            '<label class="search-field">' + icon('search') +
+              '<input type="search" id="conn-search" placeholder="搜索连接器、分类" value="' + esc(state.connQuery) + '" spellcheck="false" autocomplete="off">' +
+            '</label>' +
+            '<span class="conn-summary">' + icon('check-circle') + '已开启 <b id="conn-on-count">' + all.filter(connectorOn).length + '</b> / ' + all.length + '</span>' +
+            '<button type="button" class="btn btn-primary" data-action="new-connector">' + icon('plus') + '自定义连接器</button>' +
+          '</div>' +
+        '</div>' +
+        '<section class="conn-market">' +
+          '<div class="skill-section-head">' +
+            '<div><h2>' + esc(active ? active.name : '全部分类') + '</h2><p>' +
+              (active ? '分类路径：' + esc(Store.folderTrail(DB.connectorFolders, active.id).map((folder) => folder.name).join(' / ')) : '全部由管理端预集成，按分类与密级开放') +
+            '</p></div>' +
+          '</div>' +
+          '<div class="skill-dirs conn-dirs">' + dirTabs + '</div>' +
+          subTabs +
+          '<div class="conn-grid" id="conn-grid"></div>' +
+          '<div id="conn-empty" hidden></div>' +
+        '</section>' +
+        (hidden
+          ? '<div class="filtered-note">' + icon('shield') +
+              '按密级过滤：另有 <b>' + hidden + '</b> 个连接器高于你的账号密级（' + level.name + '级），未在当前页面展示。' +
+            '</div>'
+          : '') +
+      '</div>';
+    paintConnectorCards();
+  }
+
+  function paintConnectorCards() {
+    const grid = $('#conn-grid');
+    if (!grid) return;
+    const query = state.connQuery.trim().toLowerCase();
+    let list = connectorsInFolder(state.connFolder);
+    if (query) {
+      list = list.filter((item) => (item.name + ' ' + connectorPathText(item) + ' ' + (item.desc || '') + ' ' + (item.endpoint || '')).toLowerCase().includes(query));
+    }
+    const groupOf = (item) => (connectorOn(item) ? 0 : (connectorConfigured(item) ? 1 : 2));
+    list = list.slice().sort((a, b) => (groupOf(a) - groupOf(b)) || a.name.localeCompare(b.name, 'zh-Hans-CN'));
+    grid.innerHTML = list.map(connectorCardHtml).join('');
+    const onCount = $('#conn-on-count');
+    if (onCount) onCount.textContent = visibleConnectors().filter(connectorOn).length;
+    const empty = $('#conn-empty');
+    if (empty) {
+      if (!list.length) {
+        empty.hidden = false;
+        empty.innerHTML = '<div class="empty-state"><span class="empty-ico">' + icon('link') + '</span>' +
+          '<h3>没有找到连接器</h3>' +
+          '<p>' + (query ? '换个关键词试试，或切换到其他分类看看。' : (state.connFolder === 'all' ? '管理端暂未给你授权连接器。' : '该分类下暂无连接器，可以切换分类或自定义接入。')) + '</p></div>';
+      } else {
+        empty.hidden = true;
+      }
+    }
+    syncConnNav();
+  }
+
+  function openNewConnectorDialog() {
+    if (!state.user) return;
+    populateSelects();
+    const form = $('#new-connector-form');
+    if (form) form.reset();
+    openDialog($('#new-connector-dialog'));
+    setTimeout(() => {
+      const input = form ? fieldOf(form, 'name') : null;
+      if (input) input.focus();
+    }, 80);
   }
 
   /* ============================== 预览 ============================== */

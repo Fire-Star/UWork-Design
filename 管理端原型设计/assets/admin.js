@@ -66,7 +66,9 @@
     modelQuery: '',
     modelStatus: 'all',
     skillQuery: '',
+    skillFolder: 'all',
     connectorQuery: '',
+    connectorFolder: 'all',
     releaseQuery: '',
     releaseStatus: 'all',
     userQuery: '',
@@ -189,6 +191,54 @@
     const ids = new Set([folderId].concat(Store.descendants(DB.templateFolders, folderId).map((folder) => folder.id)));
     return DB.templates.filter((item) => ids.has(item.folder));
   }
+  function skillFolderCount(folderId) {
+    const ids = new Set([folderId].concat(Store.descendants(DB.skillFolders, folderId).map((folder) => folder.id)));
+    return DB.skills.filter((item) => ids.has(item.folder)).length;
+  }
+  function skillsInFolder(folderId) {
+    if (folderId === 'all') return DB.skills;
+    const ids = new Set([folderId].concat(Store.descendants(DB.skillFolders, folderId).map((folder) => folder.id)));
+    return DB.skills.filter((item) => ids.has(item.folder));
+  }
+  function skillFolderOf(skill) {
+    return DB.skillFolders.find((folder) => folder.id === (skill && skill.folder)) || null;
+  }
+  function skillFolderPath(skill) {
+    const folder = skillFolderOf(skill);
+    return folder ? Store.folderTrail(DB.skillFolders, folder.id).map((item) => item.name).join(' / ') : '未分类';
+  }
+  function skillFolderOptions(selected) {
+    return [{ value: 'sf0', label: '未分类' }].concat(
+      DB.skillFolders.filter((folder) => folder.id !== 'sf0').map((folder) => ({
+        value: folder.id,
+        label: new Array(Store.folderTrail(DB.skillFolders, folder.id).length).join('　') + folder.name
+      }))
+    ).map((option) => (option.value === selected ? Object.assign({}, option, { selected: true }) : option));
+  }
+  function connectorFolderCount(folderId) {
+    const ids = new Set([folderId].concat(Store.descendants(DB.connectorFolders, folderId).map((folder) => folder.id)));
+    return DB.connectors.filter((item) => ids.has(item.folder)).length;
+  }
+  function connectorsInFolder(folderId) {
+    if (folderId === 'all') return DB.connectors;
+    const ids = new Set([folderId].concat(Store.descendants(DB.connectorFolders, folderId).map((folder) => folder.id)));
+    return DB.connectors.filter((item) => ids.has(item.folder));
+  }
+  function connectorFolderOf(connector) {
+    return DB.connectorFolders.find((folder) => folder.id === (connector && connector.folder)) || null;
+  }
+  function connectorFolderPath(connector) {
+    const folder = connectorFolderOf(connector);
+    return folder ? Store.folderTrail(DB.connectorFolders, folder.id).map((item) => item.name).join(' / ') : '未分类';
+  }
+  function connectorFolderOptions(selected) {
+    return [{ value: 'cf0', label: '未分类' }].concat(
+      DB.connectorFolders.filter((folder) => folder.id !== 'cf0').map((folder) => ({
+        value: folder.id,
+        label: new Array(Store.folderTrail(DB.connectorFolders, folder.id).length).join('　') + folder.name
+      }))
+    ).map((option) => (option.value === selected ? Object.assign({}, option, { selected: true }) : option));
+  }
   function docsInFolder(kb, folderId) {
     if (folderId === 'all') return kb.docs;
     const ids = new Set([folderId].concat(Store.descendants(kb.folders, folderId).map((folder) => folder.id)));
@@ -228,6 +278,14 @@
     if (view === 'templates') {
       state.tplFolder = 'all';
       state.tplQuery = '';
+    }
+    if (view === 'skills') {
+      state.skillFolder = 'all';
+      state.skillQuery = '';
+    }
+    if (view === 'connectors') {
+      state.connectorFolder = 'all';
+      state.connectorQuery = '';
     }
     renderView();
     updateChrome();
@@ -1211,23 +1269,63 @@
   function renderSkills(root) {
     const skills = DB.skills;
     const enabled = skills.filter((item) => item.status === '启用').length;
-    const categories = Array.from(new Set(skills.map((item) => item.category))).length;
+    const folderTotal = DB.skillFolders.filter((folder) => folder.id !== 'sf0').length;
     const runs = skills.reduce((total, item) => total + (item.runs || 0), 0);
+    const selected = state.skillFolder === 'all' ? null : DB.skillFolders.find((folder) => folder.id === state.skillFolder);
+    if (state.skillFolder !== 'all' && !selected) state.skillFolder = 'all';
+    const currentList = skillsInFolder(state.skillFolder);
+    let tree = '<button type="button" class="tree-item' + (state.skillFolder === 'all' ? ' is-active' : '') + '" data-skill-folder="all">' +
+      icon('list') + '<span class="label">全部技能</span><span class="count">' + skills.length + '</span></button>' +
+      '<div class="tree-divider"></div>';
+    const walk = (parent, depth) => {
+      DB.skillFolders.filter((folder) => (folder.parent || null) === parent && folder.id !== 'sf0').forEach((folder) => {
+        tree += '<button type="button" class="tree-item' + (state.skillFolder === folder.id ? ' is-active' : '') + '" data-skill-folder="' + folder.id + '" style="padding-left:' + (7 + depth * 14) + 'px" title="' + esc(folder.desc || folder.name) + '">' +
+          icon(depth === 0 ? 'grid' : 'file') + '<span class="label">' + esc(folder.name) + '</span>' +
+          '<span class="count">' + skillFolderCount(folder.id) + '</span></button>';
+        walk(folder.id, depth + 1);
+      });
+    };
+    walk(null, 0);
+    const unclassified = DB.skillFolders.find((folder) => folder.id === 'sf0');
+    if (unclassified) {
+      tree += '<div class="tree-divider"></div>' +
+        '<button type="button" class="tree-item' + (state.skillFolder === unclassified.id ? ' is-active' : '') + '" data-skill-folder="' + unclassified.id + '" title="' + esc(unclassified.desc || '') + '">' +
+          icon('file') + '<span class="label">' + esc(unclassified.name) + '</span><span class="count">' + skillFolderCount(unclassified.id) + '</span>' +
+        '</button>';
+    }
     root.innerHTML =
-      pageHead('SKILL', '技能管理', '维护客户端已集成的专业技能。上传 .zip 技能包后按密级开放，可启用、停用或替换版本。',
+      pageHead('SKILL', '技能管理', '维护客户端已集成的专业技能。技能按目录层级组织，上传 .zip 技能包后按密级开放，可启用、停用或替换版本。',
+        '<button type="button" class="btn" data-action="new-skill-folder">' + icon('folder-plus') + '新建目录</button>' +
         '<button type="button" class="btn btn-primary" data-action="new-skill">' + icon('plus') + '新增技能</button>') +
       statGrid([
         { label: '技能总数', value: skills.length, icon: 'sparkles', tone: 'tone-blue' },
         { label: '已启用', value: enabled, icon: 'check-circle', tone: 'tone-emerald' },
-        { label: '技能分类', value: categories, icon: 'grid', tone: 'tone-violet' },
+        { label: '技能目录', value: folderTotal, icon: 'folder-plus', tone: 'tone-violet' },
         { label: '累计调用', value: runs.toLocaleString('zh-CN'), icon: 'activity', tone: 'tone-amber' }
       ]) +
-      '<div class="filter-card"><label class="filter-item"><span>技能</span>' + searchBox('skill-search', '搜索技能名称、分类或说明', state.skillQuery) + '</label></div>' +
-      '<section class="card">' +
-        '<div class="card-head"><div><h2>技能列表</h2><p>停用后客户端不再展示该技能</p></div><span class="tag tag-blue">' + icon('shield') + '密级准入</span></div>' +
-        '<div class="table-wrap"><table class="admin-table"><thead><tr><th>技能名称</th><th>分类</th><th>版本</th><th>技能包</th><th>数据密级</th><th>状态</th><th>调用次数</th><th>操作</th></tr></thead><tbody id="skill-tbody"></tbody></table></div>' +
-        tableFooter('skill-total', skills.length) +
-      '</section>';
+      '<div class="split-layout">' +
+        '<aside class="tree-panel">' +
+          '<div class="tree-panel-head"><span>技能目录</span><button type="button" class="icon-action" data-action="new-skill-folder" title="新建目录">' + icon('plus') + '</button></div>' +
+          '<div class="tree-list">' + tree + '</div>' +
+          '<p class="tree-tip">' + icon('info') + '目录可多级嵌套，客户端按目录筛选技能。</p>' +
+        '</aside>' +
+        '<section class="card">' +
+          '<div class="card-head">' +
+            '<div><h2>' + esc(selected ? selected.name : '全部技能') + ' <span class="muted" style="font-weight:400">' + currentList.length + ' 个</span></h2><p>' +
+              (selected
+                ? '目录路径：' + esc(Store.folderTrail(DB.skillFolders, selected.id).map((folder) => folder.name).join(' / ')) + ' · ' + esc(selected.owner || '系统管理员') + ' 维护'
+                : '按目录层级维护技能，停用后客户端不再展示') +
+            '</p></div>' +
+            searchBox('skill-search', '搜索技能名称、目录或说明', state.skillQuery) +
+            (selected && selected.id !== 'sf0'
+              ? '<button type="button" class="btn btn-sm" data-action="edit-skill-folder" data-id="' + selected.id + '">' + icon('edit') + '编辑目录</button>' +
+                '<button type="button" class="btn btn-sm btn-danger" data-action="delete-skill-folder" data-id="' + selected.id + '">' + icon('trash') + '删除</button>'
+              : '') +
+          '</div>' +
+          '<div class="table-wrap"><table class="admin-table"><thead><tr><th>技能名称</th><th>所属目录</th><th>版本</th><th>技能包</th><th>数据密级</th><th>状态</th><th>调用次数</th><th>操作</th></tr></thead><tbody id="skill-tbody"></tbody></table></div>' +
+          tableFooter('skill-total', currentList.length) +
+        '</section>' +
+      '</div>';
     paintSkillRows();
   }
 
@@ -1235,12 +1333,12 @@
     const tbody = $('#skill-tbody');
     if (!tbody) return;
     const query = state.skillQuery.trim().toLowerCase();
-    let list = DB.skills.slice();
-    if (query) list = list.filter((item) => (item.name + item.category + item.desc + (item.pkg ? item.pkg.name : '')).toLowerCase().includes(query));
+    let list = skillsInFolder(state.skillFolder).slice();
+    if (query) list = list.filter((item) => (item.name + item.category + item.desc + skillFolderPath(item) + (item.pkg ? item.pkg.name : '')).toLowerCase().includes(query));
     tbody.innerHTML = list.length ? list.map((skill) =>
       '<tr>' +
         '<td><div class="cell-main"><span class="cell-ico tone-violet">' + icon('sparkles') + '</span><span class="cell-copy"><b>' + esc(skill.name) + '</b><small>' + esc(skill.desc) + '</small></span></div></td>' +
-        '<td><span class="tag">' + esc(skill.category) + '</span></td>' +
+        '<td><span class="skill-path" title="' + esc(skillFolderPath(skill)) + '"><span class="tag">' + esc((skillFolderOf(skill) || {}).name || '未分类') + '</span><small>' + esc(Store.folderTrail(DB.skillFolders, skill.folder).slice(0, -1).map((folder) => folder.name).join(' / ') || '根目录') + '</small></span></td>' +
         '<td><span class="muted">v' + esc(skill.version) + '</span></td>' +
         '<td>' + (skill.pkg
           ? '<div class="pkg-cell" title="' + esc(skill.pkg.name) + ' · ' + esc(skill.pkg.size || '') + ' · 上传于 ' + esc(skill.pkg.uploaded || '') + '"><span class="pkg-badge sm">ZIP</span><span class="pkg-cell-copy"><b>' + esc(skill.pkg.name) + '</b><small>' + esc(skill.pkg.size || '') + '</small></span></div>'
@@ -1254,21 +1352,106 @@
           '<button type="button" class="icon-action is-danger" data-action="delete-skill" data-id="' + skill.id + '" title="删除">' + icon('trash') + '</button>' +
         '</div></td>' +
       '</tr>'
-    ).join('') : emptyTableRow(8, '没有匹配的技能。');
+    ).join('') : emptyTableRow(8, '当前目录没有技能，可切换目录或新增技能。');
     const total = $('#skill-total');
     if (total) total.textContent = list.length;
   }
 
+  function openSkillFolderForm(id) {
+    const editing = id ? DB.skillFolders.find((folder) => folder.id === id) : null;
+    if (editing && editing.id === 'sf0') { toast('「未分类」为系统目录，不可编辑'); return; }
+    const blocked = new Set(editing ? [editing.id].concat(Store.descendants(DB.skillFolders, editing.id).map((folder) => folder.id)) : []);
+    const parents = DB.skillFolders.filter((folder) => !blocked.has(folder.id) && folder.id !== 'sf0');
+    openForm({
+      title: editing ? '编辑技能目录' : '新建技能目录',
+      sub: editing ? '调整目录名称与上级目录，已归属的技能会随之移动。' : '技能目录支持多级嵌套，客户端按目录筛选技能。',
+      submitText: editing ? '保存修改' : '创建目录',
+      fields: [
+        { name: 'name', label: '目录名称', required: true, wide: true, placeholder: '例如：质量问题分析' },
+        { name: 'parent', label: '上级目录', type: 'select', options: [{ value: '', label: '一级目录（根）' }].concat(parents.map((folder) => ({
+          value: folder.id,
+          label: new Array(Store.folderTrail(DB.skillFolders, folder.id).length).join('　') + folder.name
+        }))) },
+        { name: 'owner', label: '维护部门', placeholder: '例如：质量管理部' },
+        { name: 'desc', label: '目录说明', type: 'textarea', wide: true, rows: 2, placeholder: '说明该目录收纳哪类技能' }
+      ],
+      values: editing
+        ? { name: editing.name, parent: editing.parent || '', owner: editing.owner || '', desc: editing.desc || '' }
+        : { parent: state.skillFolder !== 'all' && state.skillFolder !== 'sf0' ? state.skillFolder : '' },
+      onSubmit: function (values) {
+        const name = values.name.trim();
+        if (!name) { setFormError('请填写目录名称'); return false; }
+        const siblings = DB.skillFolders.filter((folder) => (folder.parent || null) === (values.parent || null) && folder.id !== (editing ? editing.id : ''));
+        if (siblings.some((folder) => folder.name === name)) {
+          setFormError('同级目录下已存在「' + name + '」，请换个名称');
+          return false;
+        }
+        if (editing) {
+          editing.name = name;
+          editing.parent = values.parent || null;
+          editing.owner = values.owner || editing.owner || '系统管理员';
+          editing.desc = values.desc || '';
+          writeAudit('技能目录', '编辑', name, '上级目录：' + (values.parent ? folderTrailText(DB.skillFolders, values.parent) : '根目录'));
+          Store.save();
+          renderSkills($('#view-root'));
+          toast('目录已更新：' + name);
+          return true;
+        }
+        const folder = {
+          id: Store.uid('sf'),
+          name: name,
+          parent: values.parent || null,
+          owner: values.owner || '系统管理员',
+          desc: values.desc || ''
+        };
+        DB.skillFolders.push(folder);
+        state.skillFolder = folder.id;
+        writeAudit('技能目录', '新增', folder.name, folder.parent ? '上级目录：' + folderTrailText(DB.skillFolders, folder.parent) : '一级目录');
+        Store.save();
+        renderSkills($('#view-root'));
+        toast('目录已创建：' + name);
+        return true;
+      }
+    });
+  }
+
+  function deleteSkillFolder(id) {
+    const folder = DB.skillFolders.find((item) => item.id === id);
+    if (!folder) return;
+    if (folder.id === 'sf0') { toast('「未分类」为系统目录，不可删除'); return; }
+    const childCount = Store.descendants(DB.skillFolders, id).length;
+    const skillCount = skillFolderCount(id);
+    if (childCount || skillCount) {
+      toast('目录下还有 ' + skillCount + ' 个技能、' + childCount + ' 个子目录（含下级），请先移走后删除');
+      return;
+    }
+    askConfirm('删除技能目录', '确定删除技能目录《' + folder.name + '》吗？', () => {
+      DB.skillFolders = DB.skillFolders.filter((item) => item.id !== id);
+      state.skillFolder = folder.parent || 'all';
+      writeAudit('技能目录', '删除', folder.name, '目录已删除');
+      Store.save();
+      renderSkills($('#view-root'));
+      toast('目录已删除');
+    });
+  }
+
+
   function openSkillForm(id) {
     const skill = id ? DB.skills.find((item) => item.id === id) : null;
-    const categories = Array.from(new Set(DB.skills.map((item) => item.category)));
+    const defaultFolder = skill
+      ? (skill.folder || 'sf0')
+      : (state.skillFolder !== 'all' ? state.skillFolder : 'sf0');
+    const folderNameOf = (folderId) => {
+      const folder = DB.skillFolders.find((item) => item.id === folderId);
+      return folder ? folder.name : '未分类';
+    };
     state.formFileCurrent = skill && skill.pkg ? Object.assign({}, skill.pkg) : null;
     state.formFile = state.formFileCurrent ? Object.assign({}, state.formFileCurrent, { fresh: false }) : null;
     state.formFileAutoName = '';
     state.formFileAutoVersion = '';
     openForm({
       title: skill ? '编辑技能' : '新增技能',
-      sub: '上传 .zip 技能包后，技能将出现在客户端加号菜单中，用户可按密级使用。',
+      sub: '上传 .zip 技能包并选择所属目录后，技能将出现在客户端技能页，用户可按目录筛选与密级使用。',
       submitText: skill ? '保存修改' : '确认新增',
       fields: [
         { name: 'pkg', label: '技能包', type: 'file', accept: '.zip', maxSize: 200, autoFill: true,
@@ -1277,39 +1460,46 @@
           currentText: '当前技能包，点击可替换',
           help: '技能包为 .zip 压缩文件，包内需包含 skill.json（技能名称、版本与提示词），单个不超过 200 MB' },
         { name: 'name', label: '技能名称', required: true, wide: true, placeholder: '例如：质量8D分析' },
-        { name: 'category', label: '技能分类', type: 'select', options: categories },
+        { name: 'folder', label: '所属目录', type: 'select', options: skillFolderOptions(defaultFolder), help: '客户端技能页按该目录层级筛选' },
         { name: 'version', label: '版本号', placeholder: '例如：1.0.0' },
         { name: 'level', label: '数据密级', type: 'select', options: LEVELS.map((level) => ({ value: level.code, label: level.name + '级' })) },
         { name: 'status', label: '状态', type: 'select', options: ['启用', '停用'] },
         { name: 'desc', label: '技能说明', type: 'textarea', wide: true, rows: 3, placeholder: '描述技能能力与适用场景' }
       ],
-      values: skill || { category: categories[0] || '通用能力', version: '1.0.0', level: 'L2', status: '启用' },
+      values: skill || { folder: defaultFolder, version: '1.0.0', level: 'L2', status: '启用' },
       onSubmit: function (values) {
         const pkg = state.formFile ? {
           name: state.formFile.name,
           size: state.formFile.size || '',
           uploaded: state.formFile.fresh ? nowStamp() : (state.formFile.uploaded || nowStamp())
         } : null;
+        const folderId = values.folder || 'sf0';
+        const folderName = folderNameOf(folderId);
         if (skill) {
           skill.name = values.name;
-          skill.category = values.category;
+          skill.folder = folderId;
+          skill.category = folderName;
           skill.version = values.version || '1.0.0';
           skill.level = values.level;
           skill.status = values.status;
           skill.desc = values.desc || '';
           skill.pkg = pkg;
+          writeAudit('技能', '编辑', skill.name, '目录「' + skillFolderPath(skill) + '」 · ' + levelInfo(skill.level).name + '级');
         } else {
-          DB.skills.push({
+          const created = {
             id: 'skill-' + Date.now(),
             name: values.name,
-            category: values.category,
+            folder: folderId,
+            category: folderName,
             version: values.version || '1.0.0',
             level: values.level,
             status: values.status,
             desc: values.desc || '',
             runs: 0,
             pkg: pkg
-          });
+          };
+          DB.skills.push(created);
+          writeAudit('技能', '新增', created.name, '目录「' + skillFolderPath(created) + '」 · ' + levelInfo(created.level).name + '级');
         }
         state.formFile = null;
         state.formFileCurrent = null;
@@ -1337,6 +1527,7 @@
     if (!skill) return;
     askConfirm('删除技能', '确定删除技能《' + skill.name + '》吗？', () => {
       DB.skills = DB.skills.filter((item) => item.id !== id);
+      writeAudit('技能', '删除', skill.name, '目录「' + skillFolderPath(skill) + '」');
       Store.save();
       renderSkills($('#view-root'));
       toast('技能已删除');
@@ -1347,23 +1538,65 @@
   function renderConnectors(root) {
     const connectors = DB.connectors;
     const connected = connectors.filter((item) => item.status === '已连接').length;
-    const categories = Array.from(new Set(connectors.map((item) => item.category))).length;
+    const folderTotal = DB.connectorFolders.filter((folder) => folder.id !== 'cf0').length;
     const high = connectors.filter((item) => Store.rank(item.level) >= rankOfLevelName('秘密', 3)).length;
+    const selected = state.connectorFolder === 'all' ? null : DB.connectorFolders.find((folder) => folder.id === state.connectorFolder);
+    if (state.connectorFolder !== 'all' && !selected) state.connectorFolder = 'all';
+    const currentList = connectorsInFolder(state.connectorFolder);
+
+    let tree = '<button type="button" class="tree-item' + (state.connectorFolder === 'all' ? ' is-active' : '') + '" data-connector-folder="all">' +
+      icon('list') + '<span class="label">全部连接器</span><span class="count">' + connectors.length + '</span></button>' +
+      '<div class="tree-divider"></div>';
+    const walk = (parent, depth) => {
+      DB.connectorFolders.filter((folder) => (folder.parent || null) === parent && folder.id !== 'cf0').forEach((folder) => {
+        tree += '<button type="button" class="tree-item' + (state.connectorFolder === folder.id ? ' is-active' : '') + '" data-connector-folder="' + folder.id + '" style="padding-left:' + (7 + depth * 14) + 'px" title="' + esc(folder.desc || folder.name) + '">' +
+          icon(depth === 0 ? 'grid' : 'file') + '<span class="label">' + esc(folder.name) + '</span>' +
+          '<span class="count">' + connectorFolderCount(folder.id) + '</span></button>';
+        walk(folder.id, depth + 1);
+      });
+    };
+    walk(null, 0);
+    const unclassified = DB.connectorFolders.find((folder) => folder.id === 'cf0');
+    if (unclassified) {
+      tree += '<div class="tree-divider"></div>' +
+        '<button type="button" class="tree-item' + (state.connectorFolder === unclassified.id ? ' is-active' : '') + '" data-connector-folder="' + unclassified.id + '" title="' + esc(unclassified.desc || '') + '">' +
+          icon('file') + '<span class="label">' + esc(unclassified.name) + '</span><span class="count">' + connectorFolderCount(unclassified.id) + '</span>' +
+        '</button>';
+    }
+
     root.innerHTML =
-      pageHead('CONNECTOR', '连接器管理', '维护客户端可以接入的业务系统。连接器状态与密级将直接影响客户端的可连接列表。',
+      pageHead('CONNECTOR', '连接器管理', '维护客户端可以接入的业务系统。连接器按分类层级组织，状态与密级将直接影响客户端的可连接列表。',
+        '<button type="button" class="btn" data-action="new-connector-folder">' + icon('folder-plus') + '新建分类</button>' +
         '<button type="button" class="btn btn-primary" data-action="new-connector">' + icon('plus') + '新增连接器</button>') +
       statGrid([
         { label: '连接器总数', value: connectors.length, icon: 'link', tone: 'tone-blue' },
         { label: '已连接', value: connected, icon: 'check-circle', tone: 'tone-emerald' },
-        { label: '接入分类', value: categories, icon: 'grid', tone: 'tone-violet' },
+        { label: '接入分类', value: folderTotal, icon: 'grid', tone: 'tone-violet' },
         { label: '秘密及以上', value: high, icon: 'lock', tone: 'tone-amber' }
       ]) +
-      '<div class="filter-card"><label class="filter-item"><span>连接器</span>' + searchBox('connector-search', '搜索名称、分类或接入地址', state.connectorQuery) + '</label></div>' +
-      '<section class="card">' +
-        '<div class="card-head"><div><h2>连接器列表</h2><p>未连接或已停用的连接器不会出现在客户端</p></div><span class="tag tag-blue">' + icon('shield') + '密级准入</span></div>' +
-        '<div class="table-wrap"><table class="admin-table"><thead><tr><th>连接器</th><th>分类</th><th>接入地址</th><th>数据密级</th><th>状态</th><th>操作</th></tr></thead><tbody id="connector-tbody"></tbody></table></div>' +
-        tableFooter('connector-total', connectors.length) +
-      '</section>';
+      '<div class="split-layout">' +
+        '<aside class="tree-panel">' +
+          '<div class="tree-panel-head"><span>连接器分类</span><button type="button" class="icon-action" data-action="new-connector-folder" title="新建分类">' + icon('plus') + '</button></div>' +
+          '<div class="tree-list">' + tree + '</div>' +
+          '<p class="tree-tip">' + icon('info') + '分类可多级嵌套，客户端按分类筛选连接器。' + '</p>' +
+        '</aside>' +
+        '<section class="card">' +
+          '<div class="card-head">' +
+            '<div><h2>' + esc(selected ? selected.name : '全部连接器') + ' <span class="muted" style="font-weight:400">' + currentList.length + ' 个</span></h2><p>' +
+              (selected
+                ? '分类路径：' + esc(Store.folderTrail(DB.connectorFolders, selected.id).map((folder) => folder.name).join(' / ')) + ' · ' + esc(selected.owner || '系统管理员') + ' 维护'
+                : '按分类层级维护连接器，未连接或已停用的连接器不会出现在客户端') +
+            '</p></div>' +
+            searchBox('connector-search', '搜索名称、分类或接入地址', state.connectorQuery) +
+            (selected && selected.id !== 'cf0'
+              ? '<button type="button" class="btn btn-sm" data-action="edit-connector-folder" data-id="' + selected.id + '">' + icon('edit') + '编辑分类</button>' +
+                '<button type="button" class="btn btn-sm btn-danger" data-action="delete-connector-folder" data-id="' + selected.id + '">' + icon('trash') + '删除</button>'
+              : '') +
+          '</div>' +
+          '<div class="table-wrap"><table class="admin-table"><thead><tr><th>连接器</th><th>所属分类</th><th>接入地址</th><th>数据密级</th><th>状态</th><th>操作</th></tr></thead><tbody id="connector-tbody"></tbody></table></div>' +
+          tableFooter('connector-total', currentList.length) +
+        '</section>' +
+      '</div>';
     paintConnectorRows();
   }
 
@@ -1371,12 +1604,12 @@
     const tbody = $('#connector-tbody');
     if (!tbody) return;
     const query = state.connectorQuery.trim().toLowerCase();
-    let list = DB.connectors.slice();
-    if (query) list = list.filter((item) => (item.name + item.category + item.endpoint + item.desc).toLowerCase().includes(query));
+    let list = connectorsInFolder(state.connectorFolder).slice();
+    if (query) list = list.filter((item) => (item.name + ' ' + item.category + ' ' + connectorFolderPath(item) + ' ' + item.endpoint + ' ' + item.desc).toLowerCase().includes(query));
     tbody.innerHTML = list.length ? list.map((connector) =>
       '<tr>' +
         '<td><div class="cell-main"><span class="cell-ico tone-emerald">' + icon('link') + '</span><span class="cell-copy"><b>' + esc(connector.name) + '</b><small>' + esc(connector.desc) + '</small></span></div></td>' +
-        '<td><span class="tag">' + esc(connector.category) + '</span></td>' +
+        '<td><span class="skill-path" title="' + esc(connectorFolderPath(connector)) + '"><span class="tag">' + esc((connectorFolderOf(connector) || {}).name || '未分类') + '</span><small>' + esc(Store.folderTrail(DB.connectorFolders, connector.folder).slice(0, -1).map((folder) => folder.name).join(' / ') || '根目录') + '</small></span></td>' +
         '<td><span class="muted" style="font-family:var(--mono)">' + esc(connector.endpoint) + '</span></td>' +
         '<td>' + levelBadge(connector.level) + '</td>' +
         '<td>' + statusBadge(connector.status) + '</td>' +
@@ -1386,31 +1619,112 @@
           '<button type="button" class="icon-action is-danger" data-action="delete-connector" data-id="' + connector.id + '" title="删除">' + icon('trash') + '</button>' +
         '</div></td>' +
       '</tr>'
-    ).join('') : emptyTableRow(6, '没有匹配的连接器。');
+    ).join('') : emptyTableRow(6, '当前分类没有连接器，可切换分类或新增连接器。');
     const total = $('#connector-total');
     if (total) total.textContent = list.length;
   }
 
+  function openConnectorFolderForm(id) {
+    const editing = id ? DB.connectorFolders.find((folder) => folder.id === id) : null;
+    if (editing && editing.id === 'cf0') { toast('「未分类」为系统分类，不可编辑'); return; }
+    const blocked = new Set(editing ? [editing.id].concat(Store.descendants(DB.connectorFolders, editing.id).map((folder) => folder.id)) : []);
+    const parents = DB.connectorFolders.filter((folder) => !blocked.has(folder.id) && folder.id !== 'cf0');
+    openForm({
+      title: editing ? '编辑连接器分类' : '新建连接器分类',
+      sub: editing ? '调整分类名称与上级分类，已归属的连接器会随之移动。' : '连接器分类支持多级嵌套，客户端按分类筛选连接器。',
+      submitText: editing ? '保存修改' : '创建分类',
+      fields: [
+        { name: 'name', label: '分类名称', required: true, wide: true, placeholder: '例如：即时通讯' },
+        { name: 'parent', label: '上级分类', type: 'select', options: [{ value: '', label: '一级分类（根）' }].concat(parents.map((folder) => ({
+          value: folder.id,
+          label: new Array(Store.folderTrail(DB.connectorFolders, folder.id).length).join('　') + folder.name
+        }))) },
+        { name: 'owner', label: '维护部门', placeholder: '例如：信息技术部' },
+        { name: 'desc', label: '分类说明', type: 'textarea', wide: true, rows: 2, placeholder: '说明该分类收纳哪类连接器' }
+      ],
+      values: editing
+        ? { name: editing.name, parent: editing.parent || '', owner: editing.owner || '', desc: editing.desc || '' }
+        : { parent: state.connectorFolder !== 'all' && state.connectorFolder !== 'cf0' ? state.connectorFolder : '' },
+      onSubmit: function (values) {
+        const name = values.name.trim();
+        if (!name) { setFormError('请填写分类名称'); return false; }
+        const siblings = DB.connectorFolders.filter((folder) => (folder.parent || null) === (values.parent || null) && folder.id !== (editing ? editing.id : ''));
+        if (siblings.some((folder) => folder.name === name)) {
+          setFormError('同级分类下已存在「' + name + '」，请换个名称');
+          return false;
+        }
+        if (editing) {
+          editing.name = name;
+          editing.parent = values.parent || null;
+          editing.owner = values.owner || editing.owner || '系统管理员';
+          editing.desc = values.desc || '';
+          writeAudit('连接器分类', '编辑', name, '上级分类：' + (values.parent ? folderTrailText(DB.connectorFolders, values.parent) : '根目录'));
+          Store.save();
+          renderConnectors($('#view-root'));
+          toast('分类已更新：' + name);
+          return true;
+        }
+        const folder = {
+          id: Store.uid('cf'),
+          name: name,
+          parent: values.parent || null,
+          owner: values.owner || '系统管理员',
+          desc: values.desc || ''
+        };
+        DB.connectorFolders.push(folder);
+        state.connectorFolder = folder.id;
+        writeAudit('连接器分类', '新增', folder.name, folder.parent ? '上级分类：' + folderTrailText(DB.connectorFolders, folder.parent) : '一级分类');
+        Store.save();
+        renderConnectors($('#view-root'));
+        toast('分类已创建：' + name);
+        return true;
+      }
+    });
+  }
+
+  function deleteConnectorFolder(id) {
+    const folder = DB.connectorFolders.find((item) => item.id === id);
+    if (!folder) return;
+    if (folder.id === 'cf0') { toast('「未分类」为系统分类，不可删除'); return; }
+    const childCount = Store.descendants(DB.connectorFolders, id).length;
+    const connectorCount = connectorFolderCount(id);
+    if (childCount || connectorCount) {
+      toast('分类下还有 ' + connectorCount + ' 个连接器、' + childCount + ' 个子分类（含下级），请先移走后删除');
+      return;
+    }
+    const folderPath = folderTrailText(DB.connectorFolders, folder.id);
+    askConfirm('删除连接器分类', '确定删除分类《' + folder.name + '》吗？', () => {
+      DB.connectorFolders = DB.connectorFolders.filter((item) => item.id !== id);
+      state.connectorFolder = folder.parent || 'all';
+      writeAudit('连接器分类', '删除', folder.name, folderPath);
+      Store.save();
+      renderConnectors($('#view-root'));
+      toast('分类已删除：' + folder.name);
+    });
+  }
+
   function openConnectorForm(id) {
     const connector = id ? DB.connectors.find((item) => item.id === id) : null;
-    const categories = Array.from(new Set(DB.connectors.map((item) => item.category)));
+    const defaultFolder = connector ? connector.folder : (state.connectorFolder !== 'all' ? state.connectorFolder : 'cf0');
     openForm({
       title: connector ? '编辑连接器' : '新增连接器',
       sub: '连接器用于访问企业业务系统，客户端只会展示密级允许的连接器。',
       submitText: connector ? '保存修改' : '确认新增',
       fields: [
         { name: 'name', label: '连接器名称', required: true, wide: true, placeholder: '例如：企业微信' },
-        { name: 'category', label: '接入分类', type: 'select', options: categories },
+        { name: 'folder', label: '所属分类', type: 'select', options: connectorFolderOptions(defaultFolder), help: '客户端连接器页按该分类层级筛选' },
         { name: 'endpoint', label: '接入地址', placeholder: '例如：qy.weixin.qq.com' },
         { name: 'level', label: '数据密级', type: 'select', options: LEVELS.map((level) => ({ value: level.code, label: level.name + '级' })) },
         { name: 'status', label: '连接状态', type: 'select', options: ['已连接', '未连接'] },
         { name: 'desc', label: '连接器说明', type: 'textarea', wide: true, rows: 3, placeholder: '描述可访问的业务能力' }
       ],
-      values: connector || { category: categories[0] || '协同办公', endpoint: '', level: 'L2', status: '已连接' },
+      values: connector || { folder: openConnectorFolderDefault(), endpoint: '', level: 'L2', status: '已连接' },
       onSubmit: function (values) {
+        const folder = DB.connectorFolders.find((item) => item.id === values.folder) || DB.connectorFolders[0];
         if (connector) {
           connector.name = values.name;
-          connector.category = values.category;
+          connector.folder = folder.id;
+          connector.category = folder.name;
           connector.endpoint = values.endpoint || '—';
           connector.level = values.level;
           connector.status = values.status;
@@ -1419,11 +1733,15 @@
           DB.connectors.push({
             id: 'connector-' + Date.now(),
             name: values.name,
-            category: values.category,
+            folder: folder.id,
+            category: folder.name,
             endpoint: values.endpoint || '—',
             level: values.level,
+            configured: true,
             status: values.status,
-            desc: values.desc || ''
+            desc: values.desc || '',
+            brand: '#5b7cfa',
+            mark: 'link'
           });
         }
         Store.save();
@@ -1432,6 +1750,10 @@
         return true;
       }
     });
+  }
+
+  function openConnectorFolderDefault() {
+    return state.connectorFolder !== 'all' ? state.connectorFolder : 'cf0';
   }
 
   function toggleConnector(id) {
@@ -2640,7 +2962,7 @@
   }
 
   /* ============================== 日志审计 ============================== */
-  const AUDIT_TYPES = ['知识库', '知识文档', '文档模板', '模板目录'];
+  const AUDIT_TYPES = ['知识库', '知识文档', '文档模板', '模板目录', '技能', '技能目录'];
   const AUDIT_ACTIONS = ['新增', '编辑', '删除', '查看'];
 
   function writeAudit(type, action, target, detail) {
@@ -2669,7 +2991,7 @@
     const logs = DB.auditLogs || [];
     const kbCount = logs.filter((item) => item.type === '知识库').length;
     const docCount = logs.filter((item) => item.type === '知识文档').length;
-    const tplCount = logs.filter((item) => item.type === '文档模板' || item.type === '模板目录').length;
+    const tplCount = logs.filter((item) => ['文档模板', '模板目录', '技能', '技能目录'].includes(item.type)).length;
     root.innerHTML =
       pageHead('AUDIT', '审计日志', '知识库与文档模板的新增、编辑、删除与查看都会留痕，可按对象类型、操作与关键词追溯。',
         '<span class="tag">' + icon('lock') + '只读审计</span>') +
@@ -2677,7 +2999,7 @@
         { label: '审计记录', value: logs.length, icon: 'activity', tone: 'tone-blue' },
         { label: '知识库操作', value: kbCount, icon: 'book', tone: 'tone-emerald' },
         { label: '文档操作', value: docCount, icon: 'file', tone: 'tone-amber' },
-        { label: '模板操作', value: tplCount, icon: 'grid', tone: 'tone-violet' }
+        { label: '模板与技能操作', value: tplCount, icon: 'grid', tone: 'tone-violet' }
       ]) +
       '<div class="filter-card">' +
         '<label class="filter-item"><span>审计</span>' + searchBox('audit-search', '搜索对象名称、操作人或详情', state.auditQuery) + '</label>' +
@@ -2751,7 +3073,18 @@
       navigate('kb');
     }
     if (params.get('dialog') === 'new-kb') setTimeout(() => openKbForm(), 80);
+    if (view === 'skills' && params.get('folder')) {
+      state.skillFolder = params.get('folder');
+      renderSkills($('#view-root'));
+    }
+    if (view === 'skills' && params.get('dialog') === 'skill-folder') setTimeout(() => openSkillFolderForm(), 120);
     if (params.get('dialog') === 'skill') setTimeout(() => openSkillForm(), 120);
+    if (view === 'connectors' && params.get('folder')) {
+      state.connectorFolder = params.get('folder');
+      renderConnectors($('#view-root'));
+    }
+    if (view === 'connectors' && params.get('dialog') === 'connector-folder') setTimeout(() => openConnectorFolderForm(), 120);
+    if (view === 'connectors' && params.get('dialog') === 'connector') setTimeout(() => openConnectorForm(), 120);
     if (params.get('dialog') === 'level') setTimeout(() => openLevelForm(), 120);
     if (params.get('dialog') === 'upload') {
       setTimeout(() => {
@@ -2788,6 +3121,20 @@
         state.tplFolder = tplFolder.dataset.tplFolder;
         state.tplQuery = '';
         renderTemplates($('#view-root'));
+        return;
+      }
+      const skillFolder = event.target.closest('[data-skill-folder]');
+      if (skillFolder) {
+        state.skillFolder = skillFolder.dataset.skillFolder;
+        state.skillQuery = '';
+        renderSkills($('#view-root'));
+        return;
+      }
+      const connectorFolder = event.target.closest('[data-connector-folder]');
+      if (connectorFolder) {
+        state.connectorFolder = connectorFolder.dataset.connectorFolder;
+        state.connectorQuery = '';
+        renderConnectors($('#view-root'));
         return;
       }
     });
@@ -2936,6 +3283,9 @@
 
       case 'new-skill': openSkillForm(); break;
       case 'edit-skill': openSkillForm(id); break;
+      case 'new-skill-folder': openSkillFolderForm(); break;
+      case 'edit-skill-folder': openSkillFolderForm(id); break;
+      case 'delete-skill-folder': deleteSkillFolder(id); break;
       case 'clear-form-file': clearFormFile(); break;
       case 'delete-skill': deleteSkill(id); break;
       case 'toggle-skill': toggleSkill(id); break;
@@ -2944,6 +3294,9 @@
       case 'edit-connector': openConnectorForm(id); break;
       case 'delete-connector': deleteConnector(id); break;
       case 'toggle-connector': toggleConnector(id); break;
+      case 'new-connector-folder': openConnectorFolderForm(); break;
+      case 'edit-connector-folder': openConnectorFolderForm(id); break;
+      case 'delete-connector-folder': deleteConnectorFolder(id); break;
 
       case 'new-release': openReleaseForm(); break;
       case 'edit-release': openReleaseForm(id); break;

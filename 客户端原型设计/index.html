@@ -186,6 +186,16 @@
           <svg class="icon"><use href="#i-file"/></svg>
           <span>文档模板</span>
         </button>
+        <button type="button" class="side-nav-item" data-view="skills">
+          <svg class="icon"><use href="#i-sparkles"/></svg>
+          <span>技能</span>
+          <span class="side-count" id="nav-skill-count">9</span>
+        </button>
+        <button type="button" class="side-nav-item" data-view="connectors">
+          <svg class="icon"><use href="#i-link"/></svg>
+          <span>连接器</span>
+          <span class="side-count" id="nav-conn-count">6</span>
+        </button>
       </nav>
 
       <div class="side-recent">
@@ -332,6 +342,16 @@
         <section class="view view-page" id="view-templates" hidden>
           <div id="templates-root"></div>
         </section>
+
+        <!-- 技能（管理技能） -->
+        <section class="view view-page" id="view-skills" hidden>
+          <div id="skills-root"></div>
+        </section>
+
+        <!-- 连接器（管理连接器） -->
+        <section class="view view-page" id="view-connectors" hidden>
+          <div id="connectors-root"></div>
+        </section>
       </div>
     </main>
   </div>
@@ -356,15 +376,15 @@
           <span id="permission-name">工作区内修改</span>
           <svg class="icon tiny"><use href="#i-chevron-down"/></svg>
         </button>
+      </div>
+      <div class="composer-right">
+        <span class="composer-hint" id="composer-hint">Enter 发送</span>
         <button type="button" class="model-btn" id="model-btn" data-action="toggle-model" aria-expanded="false">
           <span class="model-spark"><svg class="icon"><use href="#i-sparkles"/></svg></span>
           <span id="model-name">UWork-1.5-Pro</span>
           <span class="model-ctx" id="model-ctx">128K</span>
           <svg class="icon tiny"><use href="#i-chevron-down"/></svg>
         </button>
-      </div>
-      <div class="composer-right">
-        <span class="composer-hint" id="composer-hint">Enter 发送</span>
         <button type="button" class="icon-btn mic-btn" data-action="voice" aria-label="语音输入"><svg class="icon"><use href="#i-mic"/></svg></button>
         <button type="button" class="send-btn" id="send-btn" data-action="send" aria-label="发送">
           <svg class="icon"><use href="#i-arrow-up"/></svg>
@@ -406,6 +426,7 @@
   <div class="attach-submenu" id="attach-submenu" hidden></div>
   <input type="file" id="local-file-input" multiple hidden accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.png,.jpg,.jpeg,.csv">
   <input type="file" id="workspace-dir-input" webkitdirectory multiple hidden>
+  <input type="file" id="skill-pkg-input" accept=".zip,.skill" hidden>
 
   <!-- 知识库选择器 -->
   <dialog class="dialog picker-dialog" id="kb-picker">
@@ -528,6 +549,29 @@
       <footer class="form-actions">
         <button type="button" class="btn" data-action="close-new-template">取消</button>
         <button type="submit" class="btn btn-primary">保存模板</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- 自定义连接器 -->
+  <dialog class="dialog form-dialog" id="new-connector-dialog">
+    <header class="dialog-head">
+      <div><h2>自定义连接器</h2><p>通过标准 HTTP / MCP 接入内部系统，创建后仅对当前账号可见，可随时开启或关闭。</p></div>
+      <button type="button" class="icon-btn" data-action="close-new-connector" aria-label="关闭"><svg class="icon"><use href="#i-x"/></svg></button>
+    </header>
+    <form class="dialog-form" id="new-connector-form">
+      <label class="field"><span>连接器名称 <i>*</i></span><span class="input-wrap"><input name="name" type="text" maxlength="30" placeholder="例如：内部成本核算服务" required></span></label>
+      <label class="field"><span>接入地址 <i>*</i></span><span class="input-wrap"><input name="endpoint" type="text" maxlength="120" placeholder="https://api.uwork.cn/mcp" required></span></label>
+      <div class="field-row">
+        <label class="field"><span>所属分类</span><span class="input-wrap"><select name="folder" id="new-connector-folder"></select></span></label>
+        <label class="field"><span>数据密级</span><span class="input-wrap"><select name="level" id="new-connector-level"></select></span></label>
+      </div>
+      <label class="field"><span>认证方式</span><span class="input-wrap"><select name="auth"><option>API Key</option><option>OAuth 2.0</option><option>Bearer Token</option><option>无认证（内网）</option></select></span></label>
+      <label class="field"><span>能力说明</span><span class="input-wrap textarea-wrap"><textarea name="desc" rows="3" maxlength="120" placeholder="说明该连接器提供哪些数据或操作，例如：查询项目成本、导出结算单"></textarea></span></label>
+      <p class="form-note"><svg class="icon"><use href="#i-shield"/></svg>数据密级不能高于你的账号密级（秘密级），调用记录会写入审计日志。</p>
+      <footer class="form-actions">
+        <button type="button" class="btn" data-action="close-new-connector">取消</button>
+        <button type="submit" class="btn btn-primary">创建并连接</button>
       </footer>
     </form>
   </dialog>
