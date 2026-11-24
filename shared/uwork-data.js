@@ -188,6 +188,7 @@
       { id: 'sf6', name: '通用能力', parent: null, owner: '信息技术部', desc: '面向全员的基础能力' }
     ],
     templates: [
+      { id: 't14', name: 'QR-8.6-12 A/0-退库申请单.docx', folder: 'tf12', ext: 'docx', size: '78 KB', level: 'L2', owner: '张明', updated: '2026-11-22', code: 'QR-8.6-12 A/0', form: 'return', desc: '退库申请单：记录退库产品、批次、退库类型与审批信息' },
       { id: 't1', name: '质量目标分解表.xlsx', folder: 'tf12', ext: 'xlsx', size: '86 KB', level: 'L3', owner: '张明', updated: '2026-11-19' },
       { id: 't2', name: '8D 问题解决报告模板.docx', folder: 'tf1', ext: 'docx', size: '142 KB', level: 'L3', owner: '张明', updated: '2026-11-18' },
       { id: 't3', name: '内审不符合项报告.docx', folder: 'tf11', ext: 'docx', size: '96 KB', level: 'L3', owner: '张明', updated: '2026-11-08' },
@@ -202,6 +203,33 @@
       { id: 't12', name: '项目周报模板.xlsx', folder: 'tf6', ext: 'xlsx', size: '58 KB', level: 'L2', owner: '李思', updated: '2026-11-10' },
       { id: 't13', name: '技术评审检查表.xlsx', folder: 'tf32', ext: 'xlsx', size: '92 KB', level: 'L3', owner: '陈浩', updated: '2026-11-15' }
     ],
+    /* 四个专业智能体：客户端首页按「部门授权 + 个人授权」决定可见范围。
+       icon / tone 与客户端样式保持一致，管理端只做展示。 */
+    agents: [
+      { id: 'general', name: '通用办公', code: 'general', level: 'L1', status: '启用', icon: 'sparkles', tone: 'tone-blue', desc: '公文写作、会议纪要、信息整理与日常协作' },
+      { id: 'quality', name: '质量体系', code: 'quality', level: 'L3', status: '启用', icon: 'check-circle', tone: 'tone-amber', desc: '体系文件、内审外审、8D 分析与质量改进' },
+      { id: 'security', name: '保密体系', code: 'security', level: 'L4', status: '启用', icon: 'shield', tone: 'tone-emerald', desc: '保密制度、涉密载体、合规自查与风险提示' },
+      { id: 'product', name: '产品设计开发', code: 'product', level: 'L2', status: '启用', icon: 'cube', tone: 'tone-violet', desc: '需求拆解、方案评审、设计输出与项目协同' }
+    ],
+    /* 智能体权限：dept 为部门级默认授权，user 为个人级单独授权（优先于部门）。
+       部门未配置时向上级部门回溯，仍未配置则默认全部可用。 */
+    agentPermissions: {
+      dept: {
+        dep1: ['general'],
+        dep2: ['general', 'quality'],
+        dep3: ['general', 'product'],
+        dep31: ['general', 'product'],
+        dep32: ['general', 'product'],
+        dep33: ['general', 'product'],
+        dep4: ['general', 'quality', 'security'],
+        dep5: ['general', 'quality'],
+        dep6: ['general', 'quality', 'security', 'product'],
+        dep7: ['general']
+      },
+      user: {
+        u1: { mode: 'custom', agents: ['general', 'quality', 'product'] }
+      }
+    },
     models: [
       { id: 'm1', name: 'UWork-1.5-Pro', provider: 'UWork 自研', context: '128K', level: 'L2', status: '启用', isDefault: true, desc: '通用复杂任务，兼顾推理质量与响应速度' },
       { id: 'm2', name: 'UWork-1.5-Flash', provider: 'UWork 自研', context: '128K', level: 'L1', status: '启用', isDefault: false, desc: '轻量快速，适合日常问答与摘要' },

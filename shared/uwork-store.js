@@ -171,6 +171,54 @@
     return (db.users || []).find((user) => user.id === id) || null;
   }
 
+  /* ---------------------------- 智能体权限 ---------------------------- */
+  function agentCatalog() {
+    return (db.agents || []).filter((agent) => agent.status !== '停用');
+  }
+
+  function agentPermissions() {
+    if (!db.agentPermissions || typeof db.agentPermissions !== 'object') {
+      db.agentPermissions = { dept: {}, user: {} };
+    }
+    if (!db.agentPermissions.dept) db.agentPermissions.dept = {};
+    if (!db.agentPermissions.user) db.agentPermissions.user = {};
+    return db.agentPermissions;
+  }
+
+  function departmentOfUser(user) {
+    if (!user) return null;
+    return (db.departments || []).find((dep) => dep.name === user.dept) || null;
+  }
+
+  /* 部门授权支持向上级回溯：子部门未单独配置时继承上级部门。 */
+  function deptAgentIds(deptId) {
+    const perms = agentPermissions();
+    let current = (db.departments || []).find((dep) => dep.id === deptId) || null;
+    while (current) {
+      if (Array.isArray(perms.dept[current.id])) return perms.dept[current.id].slice();
+      current = current.parent ? (db.departments || []).find((dep) => dep.id === current.parent) : null;
+    }
+    return null;
+  }
+
+  function userAgentOverride(userId) {
+    const perms = agentPermissions();
+    const item = perms.user[userId];
+    return item && item.mode === 'custom' && Array.isArray(item.agents) ? item.agents.slice() : null;
+  }
+
+  /* 个人单独授权优先于部门授权；都没有配置时默认全部智能体可用。 */
+  function agentsForUser(user) {
+    const all = agentCatalog();
+    if (!user) return all;
+    const override = userAgentOverride(user.id);
+    if (override) return all.filter((agent) => override.includes(agent.id));
+    const dep = departmentOfUser(user);
+    const ids = dep ? deptAgentIds(dep.id) : null;
+    if (!ids) return all;
+    return all.filter((agent) => ids.includes(agent.id));
+  }
+
   function foldersOf(collection, parent) {
     return (collection || []).filter((folder) => (folder.parent || null) === (parent || null));
   }
@@ -220,6 +268,12 @@
     visible,
     userByName,
     userById,
+    agentCatalog,
+    agentPermissions,
+    departmentOfUser,
+    deptAgentIds,
+    userAgentOverride,
+    agentsForUser,
     foldersOf,
     folderTrail,
     descendants,

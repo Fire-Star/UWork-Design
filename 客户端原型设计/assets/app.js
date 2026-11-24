@@ -138,7 +138,9 @@
     updateProgress: 0,
     updateReadyVersion: null,
     updateTimer: null,
-    messageOpenId: null
+    messageOpenId: null,
+    docPanelClosed: null,
+    flowTimer: null
   };
 
   let submenuTimer = null;
@@ -166,6 +168,8 @@
     workspaceMenu: $('#workspace-menu'),
     workspaceDirInput: $('#workspace-dir-input'),
     agentGrid: $('#agent-grid'),
+    agentScope: $('#agent-scope-note'),
+    docPanel: $('#doc-panel'),
     suggestions: $('#suggest-grid'),
     recent: $('#recent-list'),
     userPop: $('#user-pop'),
@@ -342,8 +346,35 @@
     const ids = templateFolderIds(folderId);
     return ids ? visible.filter((item) => ids.has(item.folder)) : visible;
   }
+  function agentMetaOf(id) {
+    return (DB.agents || []).find((item) => item.id === id) || null;
+  }
+
+  /* 首页与顶部栏只展示被授权的智能体：个人单独授权 > 部门授权 > 全部可用。 */
+  function visibleAgents() {
+    const allowed = Store.agentsForUser ? Store.agentsForUser(state.user) : AGENTS;
+    if (!allowed) return AGENTS.slice();
+    const ids = new Set((allowed || []).map((agent) => agent.id));
+    return AGENTS.filter((agent) => ids.has(agent.id)).map((agent) => {
+      const meta = agentMetaOf(agent.id);
+      return meta ? Object.assign({}, agent, {
+        name: meta.name || agent.name,
+        desc: meta.desc || agent.desc,
+        icon: meta.icon || agent.icon,
+        tone: meta.tone || agent.tone
+      }) : agent;
+    });
+  }
+
   function agentOf(id) {
-    return AGENTS.find((agent) => agent.id === id) || AGENTS[0];
+    const base = AGENTS.find((agent) => agent.id === id) || AGENTS[0];
+    const meta = agentMetaOf(base.id);
+    return meta ? Object.assign({}, base, {
+      name: meta.name || base.name,
+      desc: meta.desc || base.desc,
+      icon: meta.icon || base.icon,
+      tone: meta.tone || base.tone
+    }) : base;
   }
   function currentSession() {
     return state.sessions.find((session) => session.id === state.currentSessionId) || null;
@@ -755,12 +786,17 @@
     const opts = options || {};
     state.user = user;
     saveSessionUser(user);
-    state.sessions = DEMO_SESSIONS.map((session) => Object.assign({}, session, {
-      attachments: (session.attachments || []).filter((item) => !item.level || Store.canSee(user.level, item.level))
-    }));
+    const allowedAgents = visibleAgents().map((agent) => agent.id);
+    state.sessions = DEMO_SESSIONS
+      .filter((session) => !allowedAgents.length || allowedAgents.includes(session.agent))
+      .map((session) => Object.assign({}, session, {
+        attachments: (session.attachments || []).filter((item) => !item.level || Store.canSee(user.level, item.level))
+      }));
     state.attachments = [];
     state.currentSessionId = null;
-    state.agent = 'general';
+    state.agent = (allowedAgents[0]) || 'general';
+    state.docPanelClosed = null;
+    if (state.flowTimer) { clearTimeout(state.flowTimer); state.flowTimer = null; }
     state.workspace = DEFAULT_WORKSPACE;
     state.permission = DEFAULT_PERMISSION;
     state.kbDetail = null;
@@ -806,6 +842,9 @@
 
   function logout() {
     clearSessionUser();
+    clearFlowTimer();
+    hideDocPanel();
+    state.docPanelClosed = null;
     try { window.history.replaceState(null, '', window.location.pathname); } catch (err) { /* ignore */ }
     state.user = null;
     state.sessions = [];
@@ -940,6 +979,17 @@
         choosePlus(plusParam);
       }, 120);
     }
+    const flowParam = params.get('flow');
+    if (flowParam === 'return') setTimeout(startReturnFlowDemo, 200);
+  }
+
+  function startReturnFlowDemo() {
+    if (!state.user) return;
+    if (state.view !== 'home') newChat();
+    dom.prompt.value = '帮我填写退库申请单';
+    autosizePrompt();
+    syncSend();
+    sendMessage();
   }
 
   /* ------------------------------ 导航 ------------------------------ */
@@ -969,6 +1019,7 @@
     mountComposer();
     updateTopbar();
     closeAllOverlays();
+    syncDocPanel();
     const scroller = $('#view-scroll');
     if (scroller) scroller.scrollTop = 0;
     closeSidebar();
@@ -1027,13 +1078,26 @@
     hideModelMenu();
     hideWorkspaceMenu();
     hidePermissionMenu();
+    hideDocPanel();
     dom.userPop.hidden = true;
     dom.clearancePop.hidden = true;
   }
 
   /* ------------------------------ 首页 ------------------------------ */
   function renderAgents() {
-    dom.agentGrid.innerHTML = AGENTS.map((agent) => {
+    const list = visibleAgents();
+    if (dom.agentGrid) {
+      dom.agentGrid.classList.toggle('is-scarce', list.length < AGENTS.length);
+      dom.agentGrid.style.setProperty('--agent-cols', String(Math.max(1, Math.min(list.length, AGENTS.length))));
+    }
+    if (!list.length) {
+      dom.agentGrid.innerHTML = '<div class="agent-empty">' + icon('shield') +
+        '<b>当前账号暂未授权任何智能体</b><small>请联系管理员在管理端「系统管理 → 智能体权限」中，为你的部门或个人开启智能体。</small></div>';
+      renderAgentScope(list);
+      return;
+    }
+    if (!list.some((agent) => agent.id === state.agent)) state.agent = list[0].id;
+    dom.agentGrid.innerHTML = list.map((agent) => {
       const active = state.agent === agent.id;
       return '<button type="button" class="agent-card' + (active ? ' is-active' : '') + '" data-agent="' + agent.id + '" role="radio" aria-checked="' + active + '">' +
         '<span class="agent-ico ' + agent.tone + '">' + icon(agent.icon) + '</span>' +
@@ -1041,6 +1105,27 @@
         '<span class="agent-check">' + icon('check') + '</span>' +
         '</button>';
     }).join('');
+    renderAgentScope(list);
+  }
+
+  function renderAgentScope(list) {
+    if (!dom.agentScope) return;
+    const agents = list || visibleAgents();
+    const total = AGENTS.length;
+    if (!agents.length) {
+      dom.agentScope.innerHTML = icon('shield') + '当前账号 <b>0</b> / ' + total + ' 个智能体 · 请联系管理员授权';
+      return;
+    }
+    if (agents.length >= total) {
+      dom.agentScope.innerHTML = icon('shield') + '当前账号已授权全部 <b>' + total + '</b> 个智能体';
+      return;
+    }
+    const override = Store.userAgentOverride ? Store.userAgentOverride(state.user.id) : null;
+    const dep = Store.departmentOfUser ? Store.departmentOfUser(state.user) : null;
+    const source = override ? '个人单独授权' : (dep ? dep.name + '授权' : '部门授权');
+    dom.agentScope.innerHTML = icon('shield') +
+      '当前账号可见 <b>' + agents.length + '</b> / ' + total + ' 个智能体 · ' + esc(source) +
+      ' <span>其余智能体未授权，可在管理端「智能体权限」调整</span>';
   }
 
   function renderSuggestions() {
@@ -1056,7 +1141,10 @@
   }
 
   function selectAgent(id) {
-    if (!AGENTS.some((agent) => agent.id === id)) return;
+    if (!visibleAgents().some((agent) => agent.id === id)) {
+      toast('该智能体未对当前账号授权，请联系管理员在「智能体权限」中开启');
+      return;
+    }
     state.agent = id;
     renderAgents();
     renderSuggestions();
@@ -1685,6 +1773,9 @@
     state.currentSessionId = null;
     state.agent = 'general';
     state.permission = DEFAULT_PERMISSION;
+    clearFlowTimer();
+    state.docPanelClosed = null;
+    hideDocPanel();
     syncPermissionBtn();
     clearComposer();
     renderChips();
@@ -1721,7 +1812,8 @@
     }
     const attachments = state.attachments.slice();
     const first = attachments[0];
-    const titleSource = text || (first ? '关于「' + first.name + '」的工作' : '新会话');
+    const wantsReturnForm = /填写退库申请单/.test(text.replace(/\s/g, ''));
+    const titleSource = wantsReturnForm ? '填写退库申请单' : (text || (first ? '关于「' + first.name + '」的工作' : '新会话'));
     const title = titleSource.length > 26 ? titleSource.slice(0, 26) + '…' : titleSource;
     const session = {
       id: 's-' + Date.now(),
@@ -1735,8 +1827,10 @@
       attachments: attachments,
       typing: true
     };
+    if (wantsReturnForm) session.flow = buildReturnFlow();
     state.sessions.unshift(session);
     state.currentSessionId = session.id;
+    state.docPanelClosed = null;
     state.wsCollapsed.delete(state.workspace);
     clearComposer();
     renderRecent();
@@ -1745,8 +1839,9 @@
     setTimeout(() => {
       session.typing = false;
       renderChat();
+      if (session.flow) syncDocPanel();
       scrollChatToBottom();
-    }, 950);
+    }, session.flow ? 1150 : 950);
   }
 
   function scrollChatToBottom() {
@@ -1865,6 +1960,12 @@
     const session = currentSession();
     const inner = $('#chat-inner');
     if (!session || !inner) { if (inner) inner.innerHTML = ''; return; }
+    if (session.flow) {
+      inner.innerHTML = flowChatHtml(session);
+      updateTopbar();
+      renderRecent();
+      return;
+    }
     const agent = agentOf(session.agent);
     const typing = session.typing;
     inner.innerHTML =
@@ -1885,6 +1986,642 @@
       '</div>';
     updateTopbar();
     renderRecent();
+  }
+
+  /* ======================== 填写退库申请单（交互流程） ======================== */
+  const RETURN_TYPE_OPTIONS = ['退货', '多余领料', '参数不匹配', '错领'];
+
+  function returnTemplate() {
+    return DB.templates.find((item) => item.form === 'return') ||
+      DB.templates.find((item) => /退库申请单/.test(item.name)) || null;
+  }
+
+  function findFlowTemplate(id) {
+    return DB.templates.find((item) => item.id === id) || null;
+  }
+
+  function templateForFlow(flow) {
+    return findFlowTemplate(flow.templateId) || returnTemplate();
+  }
+
+  function flowIsReturn(flow) {
+    return flow.form === 'return';
+  }
+
+  function buildReturnFlow() {
+    const tpl = returnTemplate();
+    return {
+      kind: 'return-form',
+      stage: 'template',
+      templateId: tpl ? tpl.id : 't14',
+      templateName: tpl ? tpl.name : 'QR-8.6-12 A/0-退库申请单.docx',
+      form: 'return',
+      source: 'library',
+      draft: {},
+      values: null
+    };
+  }
+
+  function clearFlowTimer() {
+    if (state.flowTimer) {
+      clearTimeout(state.flowTimer);
+      state.flowTimer = null;
+    }
+  }
+
+  function flowFieldSchema(flow) {
+    if (flowIsReturn(flow)) {
+      return [
+        { name: 'taskNo', label: '任务单号', required: true, placeholder: '例如：TK-2026-1124-018' },
+        { name: 'model', label: '产品型号', required: true, placeholder: '例如：UW-QM-2401 壳体组件' },
+        { name: 'qty', label: '数量', required: true, type: 'number', placeholder: '例如：12' },
+        { name: 'batch', label: '产品批次号', required: true, placeholder: '例如：B20261118-03' },
+        { name: 'reason', label: '申请原因、内容说明', required: true, type: 'textarea', wide: true, placeholder: '说明退库原因、发现的问题与处理诉求' }
+      ];
+    }
+    return [
+      { name: 'subject', label: '文件主题', required: true, wide: true, placeholder: '例如：11 月质量例会会议纪要' },
+      { name: 'content', label: '主要内容', required: true, type: 'textarea', wide: true, placeholder: '描述需要写入文档的主要内容' },
+      { name: 'note', label: '补充说明', type: 'textarea', wide: true, placeholder: '可选，例如需要重点提示的事项' }
+    ];
+  }
+
+  function flowAutoFields(flow) {
+    const base = [
+      { label: '所属部门', value: state.user.dept },
+      { label: flowIsReturn(flow) ? '申请人' : '填写人', value: state.user.name },
+      { label: '日期', value: today() }
+    ];
+    if (flowIsReturn(flow)) base.push({ label: '退库类型', value: '退货' });
+    return base;
+  }
+
+  function flowSampleValues(flow) {
+    if (flowIsReturn(flow)) {
+      return {
+        taskNo: 'TK-2026-1124-018',
+        model: 'UW-QM-2401 壳体组件',
+        qty: '12',
+        batch: 'B20261118-03',
+        reason: '装配过程中发现 12 件壳体接缝处存在轻微裂纹，经复检判定为来料批次一致性波动，现退回库房并申请换料。'
+      };
+    }
+    return {
+      subject: '11 月质量例会会议纪要',
+      content: '会议确认壳体裂纹批次完成 100% 复检，修订换模作业指导书并增加首件确认，相关措施于 11 月 28 日前闭环。',
+      note: ''
+    };
+  }
+
+  function flowAvatar() {
+    return '<span class="msg-avatar"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="11" fill="url(#uwork-grad)"/><path d="M13 10v11a7 7 0 0014 0V10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="30.5" cy="10.5" r="2.2" fill="#a9e4ff"/></svg></span>';
+  }
+
+  function flowModelName() {
+    return esc((DB.models.find((model) => model.id === state.modelId) || {}).name || 'UWork-1.5-Pro');
+  }
+
+  function flowMessage(agent, body) {
+    return '<div class="msg">' + flowAvatar() +
+      '<div class="msg-body">' +
+        '<div class="msg-head"><b>' + esc(agent.name) + '智能体</b><span class="model-tag">' + flowModelName() + '</span><span class="time">' + esc(nowTime()) + '</span></div>' +
+        body +
+      '</div>' +
+    '</div>';
+  }
+
+  function flowTyping() {
+    return '<div class="typing" aria-label="正在生成"><span></span><span></span><span></span></div>';
+  }
+
+  function flowProcessCard(steps, time) {
+    return '<div class="process-card">' +
+      '<div class="process-head">' + icon('check-circle') + '已完成 ' + steps.length + ' 个步骤<span class="process-time">用时 ' + (time || '1.6s') + '</span></div>' +
+      '<ul class="process-steps">' + steps.map((step) => '<li><span class="step-dot"></span>' + step + '</li>').join('') + '</ul>' +
+    '</div>';
+  }
+
+  function flowTemplateCard(flow) {
+    const tpl = templateForFlow(flow);
+    const path = tpl ? Store.folderTrail(DB.templateFolders, tpl.folder).map((folder) => folder.name).join(' / ') : '质量管理 / 质量记录';
+    return '<div class="flow-tpl-card">' +
+      '<span class="flow-tpl-ico">' + icon('file') + '</span>' +
+      '<span class="flow-tpl-copy"><b>' + esc(flow.templateName) + '</b><small>' + esc(path || '文档模板') +
+        (tpl ? ' · ' + esc(tpl.size) + ' · ' + esc(tpl.owner) + ' 更新于 ' + esc(tpl.updated) : '') + '</small></span>' +
+      (tpl ? levelBadge(tpl.level) : '') +
+    '</div>';
+  }
+
+  function flowResumeButton(flow) {
+    return '<button type="button" class="flow-resume" data-action="docflow-resume">' +
+      icon(flow.stage === 'template' ? 'file' : 'clipboard') +
+      (flow.stage === 'template' ? '打开模板选择' : '继续补充字段') +
+    '</button>';
+  }
+
+  function flowCnDate(value) {
+    const parts = String(value || '').split('-');
+    if (parts.length === 3) return parts[0] + ' 年 ' + Number(parts[1]) + ' 月 ' + Number(parts[2]) + ' 日';
+    return value || '';
+  }
+
+  function flowReturnSheet(flow) {
+    const v = flow.values || {};
+    const type = v.retType || '退货';
+    return '<div class="form-sheet">' +
+      '<div class="form-sheet-head"><div><b>退库申请单</b><small>RETURN APPLICATION FORM</small></div><span>编号：QR-8.6-12 A/0</span></div>' +
+      '<table class="form-sheet-table">' +
+        '<tr><th>申请部门</th><td>' + esc(v.dept || state.user.dept) + '</td><th>申请人</th><td>' + esc(v.applicant || state.user.name) + '</td><th>申请日期</th><td>' + esc(v.date || today()) + '</td></tr>' +
+        '<tr><th>任务单号</th><td>' + esc(v.taskNo || '—') + '</td><th>产品型号</th><td>' + esc(v.model || '—') + '</td><th>数量</th><td>' + esc(v.qty || '—') + '</td></tr>' +
+        '<tr><th>产品批次号</th><td>' + esc(v.batch || '—') + '</td><th>退库类型</th><td colspan="3"><span class="sheet-type">' +
+          RETURN_TYPE_OPTIONS.map((item) => (item === type ? '☑ ' : '☐ ') + item).join('　') + '</span></td></tr>' +
+        '<tr><th colspan="6" class="is-section">申请原因、内容说明</th></tr>' +
+        '<tr><td colspan="6" class="sheet-reason">' + esc(v.reason || '—') + '</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line">申请人：' + esc(v.applicant || state.user.name) + '　　日期：' + flowCnDate(v.date || today()) + '</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line is-section-row">质量部检验</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line">质检员：______________　　日期：　　　年　　月　　日</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line is-section-row">申请部门部长审批</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line">批准人：______________　　日期：　　　年　　月　　日</td></tr>' +
+        '<tr><td colspan="3" class="sheet-sign">申请人 / 交接人：' + esc(v.applicant || state.user.name) + '</td><td colspan="3" class="sheet-sign">库房管理员 / 接收人：______________</td></tr>' +
+      '</table>' +
+    '</div>';
+  }
+
+  function blankReturnSheet() {
+    return '<div class="form-sheet is-blank">' +
+      '<div class="form-sheet-head"><div><b>退库申请单</b><small>RETURN APPLICATION FORM</small></div><span>编号：QR-8.6-12 A/0</span></div>' +
+      '<table class="form-sheet-table">' +
+        '<tr><th>申请部门</th><td></td><th>申请人</th><td></td><th>申请日期</th><td></td></tr>' +
+        '<tr><th>任务单号</th><td></td><th>产品型号</th><td></td><th>数量</th><td></td></tr>' +
+        '<tr><th>产品批次号</th><td></td><th>退库类型</th><td colspan="3"><span class="sheet-type">' +
+          RETURN_TYPE_OPTIONS.map((item) => '☐ ' + item).join('　') + '</span></td></tr>' +
+        '<tr><th colspan="6" class="is-section">申请原因、内容说明</th></tr>' +
+        '<tr><td colspan="6" class="sheet-reason"></td></tr>' +
+        '<tr><td colspan="6" class="sheet-line">申请人：　　　　　　　　日期：　　　年　　月　　日</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line is-section-row">质量部检验</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line">质检员：______________　　日期：　　　年　　月　　日</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line is-section-row">申请部门部长审批</td></tr>' +
+        '<tr><td colspan="6" class="sheet-line">批准人：______________　　日期：　　　年　　月　　日</td></tr>' +
+        '<tr><td colspan="3" class="sheet-sign">申请人 / 交接人：</td><td colspan="3" class="sheet-sign">库房管理员 / 接收人：</td></tr>' +
+      '</table></div>';
+  }
+
+  function flowGenericSheet(flow) {
+    const v = flow.values || {};
+    return '<div class="form-sheet">' +
+      '<div class="form-sheet-head"><div><b>' + esc(String(flow.templateName || '文档').replace(/\.[^.]+$/, '')) + '</b><small>DOCUMENT</small></div><span>UWork 模板生成</span></div>' +
+      '<table class="form-sheet-table"><tr><th>主题</th><td colspan="5">' + esc(v.subject || '—') + '</td></tr>' +
+      '<tr><th colspan="6" class="is-section">主要内容</th></tr>' +
+      '<tr><td colspan="6" class="sheet-reason">' + esc(v.content || '—') + '</td></tr>' +
+      (v.note ? '<tr><th colspan="6" class="is-section">补充说明</th></tr><tr><td colspan="6" class="sheet-reason">' + esc(v.note) + '</td></tr>' : '') +
+      '<tr><td colspan="3" class="sheet-sign">填写人：' + esc(v.applicant || state.user.name) + '</td><td colspan="3" class="sheet-sign">日期：' + esc(v.date || today()) + '</td></tr>' +
+      '</table></div>';
+  }
+
+  function flowSheet(flow) {
+    return flowIsReturn(flow) ? flowReturnSheet(flow) : flowGenericSheet(flow);
+  }
+
+  function flowChatHtml(session) {
+    const flow = session.flow;
+    const agent = agentOf(session.agent);
+    const panelClosed = state.docPanelClosed === session.id;
+    let html = '<div class="chat-date">' + esc(session.when || '今天') + '</div>' +
+      '<div class="msg msg-user"><div class="bubble"><p>' + esc(session.question) + '</p>' + staticChips(session.attachments) + '</div></div>';
+
+    const isReturn = flowIsReturn(flow);
+    const firstBody = flowProcessCard([
+      '识别意图：<b>填写退库申请单</b>',
+      '检索企业文档模板库',
+      '匹配模板：<b>' + esc(flow.templateName) + '</b>'
+    ], '1.2s') +
+      '<div class="answer">' +
+        '<h3>已从模板库找到匹配模板</h3>' +
+        '<p>从模板库里面找到了 <strong>【' + (isReturn ? '退库申请单' : String(flow.templateName).replace(/\.[^.]+$/, '')) + '】</strong>' +
+          (isReturn ? '（QR-8.6-12 A/0）' : '') + '，是否使用这个模板？</p>' +
+        flowTemplateCard(flow) +
+        '<p class="flow-hint">' + (flow.stage === 'template'
+          ? '请在输入框上方确认模板，也可以选择其他模板后再继续。'
+          : '已使用该模板，接下来会解析字段并自动填写。') + '</p>' +
+        (flow.stage === 'template' && panelClosed ? flowResumeButton(flow) : '') +
+      '</div>';
+    html += flowMessage(agent, firstBody);
+
+    if (flow.stage !== 'template') {
+      const fields = flowFieldSchema(flow);
+      const auto = flowAutoFields(flow);
+      const body = flowProcessCard([
+        '载入模板：<b>' + esc(flow.templateName) + '</b>',
+        isReturn ? '解析模板字段：<b>9 个</b>' : '解析模板字段：<b>4 个</b>',
+        '自动填写：<b>' + auto.length + ' 个</b>',
+        '等待补充：<b>' + fields.filter((field) => field.required).length + ' 个</b>'
+      ], '1.8s') +
+        '<div class="answer">' +
+          '<h3>' + (isReturn ? '已按模板自动填写申请单' : '已按模板自动填写文档') + '</h3>' +
+          '<p>已使用《' + esc(flow.templateName) + '》模板，自动带入 <b>' + auto.length + '</b> 个字段：' +
+            auto.map((item) => item.label).join('、') + '。</p>' +
+          '<p>还有 <b>' + fields.filter((field) => field.required).length + '</b> 个字段需要补充：' +
+            fields.filter((field) => field.required).map((field) => field.label).join('、') + '。' +
+            (flow.stage === 'fields' ? '请在输入框上方填写。' : '') + '</p>' +
+          '<div class="flow-auto-row">' + auto.map((item) =>
+            '<span class="flow-auto-chip"><small>' + esc(item.label) + '</small><b>' + esc(item.value) + '</b></span>'
+          ).join('') + '</div>' +
+          (flow.stage === 'fields' && panelClosed ? flowResumeButton(flow) : '') +
+        '</div>';
+      html += flowMessage(agent, session.typing ? flowTyping() : body);
+    }
+
+    if (flow.stage === 'done') {
+      const doneBody = '<div class="flow-success">' +
+          '<span class="flow-success-ico">' + icon('check') + '</span>' +
+          '<div><b>填写完毕</b><small>' + esc(flow.templateName) + ' 已按模板填写完成，审批签字待线下完成。</small></div>' +
+        '</div>' +
+        '<div class="answer">' +
+          '<h3>' + (isReturn ? '退库申请单已生成' : '文档已生成') + '</h3>' +
+          '<p>' + (isReturn ? '申请部门、申请人、申请日期与退库类型由智能体自动填写，其余字段已按你的补充写入模板。' : '内容已按模板结构写入，可直接下载或提交审批。') + '</p>' +
+          flowSheet(flow) +
+          '<div class="flow-result-actions">' +
+            '<button type="button" data-action="docflow-download">' + icon('download') + '下载 Word</button>' +
+            '<button type="button" data-action="docflow-print">' + icon('print') + '打印</button>' +
+            '<button type="button" data-action="docflow-copy">' + icon('file') + '复制内容</button>' +
+            '<button type="button" class="is-primary" data-action="docflow-submit">' + icon('check-circle') + '提交审批</button>' +
+          '</div>' +
+          '<div class="cite-line">引用来源<button type="button" class="cite-chip" data-cite="' + esc(flow.templateName) + '">' + icon('file') + esc(flow.templateName) + '</button></div>' +
+        '</div>';
+      html += flowMessage(agent, doneBody);
+    }
+    return html;
+  }
+
+  /* ---------------------------- 输入框上方弹层 ---------------------------- */
+  function hideDocPanel() {
+    if (!dom.docPanel) return;
+    dom.docPanel.hidden = true;
+    dom.docPanel.innerHTML = '';
+    dom.docPanel.removeAttribute('style');
+  }
+
+  function placeDocPanel() {
+    const panel = dom.docPanel;
+    if (!panel || panel.hidden || dom.composer.hidden) return;
+    const rect = dom.composer.getBoundingClientRect();
+    const width = Math.min(rect.width, 560);
+    const left = rect.left + Math.max(0, (rect.width - width) / 2);
+    panel.style.width = width + 'px';
+    panel.style.left = Math.max(12, Math.min(left, window.innerWidth - width - 12)) + 'px';
+    panel.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
+    panel.style.maxHeight = Math.max(200, rect.top - 24) + 'px';
+  }
+
+  function syncDocPanel() {
+    const session = currentSession();
+    const active = state.view === 'chat' && session && session.flow &&
+      (session.flow.stage === 'template' || session.flow.stage === 'fields') &&
+      !session.typing && state.docPanelClosed !== session.id;
+    if (!active) { hideDocPanel(); return; }
+    renderDocPanel(session);
+  }
+
+  function docPanelHead(step, title, sub) {
+    return '<div class="doc-panel-head">' +
+      '<span class="doc-panel-step">' + step + '</span>' +
+      '<div class="doc-panel-title"><b>' + esc(title) + '</b><small>' + esc(sub) + '</small></div>' +
+      '<button type="button" class="icon-btn doc-panel-close" data-action="docflow-dismiss" aria-label="收起">' + icon('x') + '</button>' +
+    '</div>';
+  }
+
+  function templateStageHtml(session) {
+    const flow = session.flow;
+    const lib = returnTemplate();
+    const libName = lib ? lib.name : 'QR-8.6-12 A/0-退库申请单.docx';
+    const libPath = lib ? Store.folderTrail(DB.templateFolders, lib.folder).map((folder) => folder.name).join(' / ') : '质量管理 / 质量记录';
+    const libraryActive = flow.source !== 'picked';
+    const picked = !libraryActive ? (findFlowTemplate(flow.templateId) || {}) : null;
+    return docPanelHead('1 / 2', '选择文档模板', 'AI 已从模板库匹配到可用模板，确认后开始填写') +
+      '<div class="doc-choice">' +
+        '<button type="button" class="doc-choice-item' + (libraryActive ? ' is-active' : '') + '" data-action="docflow-pick-library">' +
+          '<span class="doc-choice-radio"></span>' +
+          '<span class="doc-choice-ico">' + icon('file') + '</span>' +
+          '<span class="doc-choice-copy"><b>' + esc(libName) + '</b><small>' + esc(libPath) + ' · 模板库匹配结果</small></span>' +
+          (lib ? levelBadge(lib.level) : '') +
+        '</button>' +
+        '<button type="button" class="doc-choice-item is-other' + (!libraryActive ? ' is-active' : '') + '" data-action="docflow-other">' +
+          '<span class="doc-choice-radio"></span>' +
+          '<span class="doc-choice-ico is-other">' + icon('folder') + '</span>' +
+          '<span class="doc-choice-copy"><b>' + (picked ? esc(picked.name) : '其他模板') + '</b><small>' +
+            (picked ? '已从模板库重新选择 · 点击可更换' : '从企业文档模板库中选择其他模板') + '</small></span>' +
+          icon('chevron-right', 'doc-choice-go') +
+        '</button>' +
+      '</div>' +
+      '<div class="doc-panel-foot">' +
+        '<span class="doc-panel-note">' + icon('info') + '确认后 AI 会解析模板字段并自动填写</span>' +
+        '<div class="doc-panel-actions">' +
+          '<button type="button" class="btn" data-action="docflow-dismiss">取消</button>' +
+          '<button type="button" class="btn btn-primary" data-action="docflow-use">确认使用</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function fieldsStageHtml(session) {
+    const flow = session.flow;
+    const fields = flowFieldSchema(flow);
+    const auto = flowAutoFields(flow);
+    const draft = flow.draft || {};
+    const inputs = fields.map((field) => {
+      const value = draft[field.name] || '';
+      const control = field.type === 'textarea'
+        ? '<textarea name="' + field.name + '" rows="2" placeholder="' + esc(field.placeholder || '') + '">' + esc(value) + '</textarea>'
+        : '<input name="' + field.name + '" type="' + (field.type === 'number' ? 'number' : 'text') + '" value="' + esc(value) + '" placeholder="' + esc(field.placeholder || '') + '" spellcheck="false">';
+      return '<label class="doc-field' + (field.wide ? ' is-wide' : '') + '"><span>' + esc(field.label) + (field.required ? ' <i>*</i>' : '') + '</span>' + control + '</label>';
+    }).join('');
+    return docPanelHead('2 / 2', flowIsReturn(flow) ? '补充退库申请单信息' : '补充文档信息',
+      'AI 已填写 ' + auto.length + ' 项，还需你补充 ' + fields.filter((field) => field.required).length + ' 项') +
+      '<div class="doc-auto">' +
+        '<span class="doc-auto-label">' + icon('sparkles') + 'AI 已填写</span>' +
+        auto.map((item) => '<span class="doc-auto-chip"><small>' + esc(item.label) + '</small><b>' + esc(item.value) + '</b></span>').join('') +
+      '</div>' +
+      '<div class="doc-fields" id="doc-field-form">' + inputs + '</div>' +
+      '<p class="doc-panel-error" hidden></p>' +
+      '<div class="doc-panel-foot">' +
+        '<button type="button" class="link-btn doc-sample" data-action="docflow-fill-sample">填入示例</button>' +
+        '<div class="doc-panel-actions">' +
+          '<button type="button" class="btn" data-action="docflow-dismiss">稍后补充</button>' +
+          '<button type="button" class="btn btn-primary" data-action="docflow-confirm-fields">确认并生成</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderDocPanel(session) {
+    const panel = dom.docPanel;
+    if (!panel) return;
+    panel.innerHTML = session.flow.stage === 'template' ? templateStageHtml(session) : fieldsStageHtml(session);
+    panel.hidden = false;
+    placeDocPanel();
+    if (session.flow.stage === 'template') {
+      setTimeout(placeDocPanel, 0);
+    }
+  }
+
+  function dismissDocPanel() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    state.docPanelClosed = session.id;
+    hideDocPanel();
+    renderChat();
+  }
+
+  function resumeFlowPanel() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    state.docPanelClosed = null;
+    syncDocPanel();
+    scrollChatToBottom();
+  }
+
+  function confirmFlowTemplate() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    const flow = session.flow;
+    state.docPanelClosed = null;
+    flow.stage = 'parsing';
+    session.typing = true;
+    hideDocPanel();
+    renderChat();
+    scrollChatToBottom();
+    clearFlowTimer();
+    state.flowTimer = setTimeout(() => {
+      flow.stage = 'fields';
+      session.typing = false;
+      renderChat();
+      syncDocPanel();
+      scrollChatToBottom();
+    }, 1250);
+  }
+
+  function selectLibraryTemplate() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    const tpl = returnTemplate();
+    session.flow.templateId = tpl ? tpl.id : 't14';
+    session.flow.templateName = tpl ? tpl.name : 'QR-8.6-12 A/0-退库申请单.docx';
+    session.flow.form = 'return';
+    session.flow.source = 'library';
+    renderDocPanel(session);
+  }
+
+  function flowFirstPickedTemplate() {
+    if (!state.picker || !state.pickerMeta) return null;
+    const keys = pickerMaximalKeys();
+    for (const key of keys) {
+      const meta = state.pickerMeta.get(key);
+      if (meta && meta.kind === 'tpl') {
+        const found = findFlowTemplate(meta.key.replace(/^tpl:/, ''));
+        if (found) return found;
+      }
+    }
+    for (const key of keys) {
+      const meta = state.pickerMeta.get(key);
+      if (!meta || meta.kind !== 'tplfolder') continue;
+      const hit = (meta.descendants || []).map((child) => state.pickerMeta.get(child)).find((child) => child && child.kind === 'tpl');
+      if (hit) {
+        const found = findFlowTemplate(hit.key.replace(/^tpl:/, ''));
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function applyPickedFlowTemplate() {
+    const session = currentSession();
+    if (!session || !session.flow) return false;
+    const tpl = flowFirstPickedTemplate();
+    if (!tpl) { toast('请选择要使用的文档模板'); return false; }
+    const library = returnTemplate();
+    session.flow.templateId = tpl.id;
+    session.flow.templateName = tpl.name;
+    session.flow.form = tpl.form || 'generic';
+    session.flow.source = library && tpl.id === library.id ? 'library' : 'picked';
+    closeDialog(dom.tplPicker);
+    syncDocPanel();
+    toast('已选择模板：' + tpl.name);
+    return true;
+  }
+
+  function fillFlowSample() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    const sample = flowSampleValues(session.flow);
+    session.flow.draft = Object.assign({}, session.flow.draft, sample);
+    Object.keys(sample).forEach((name) => {
+      const input = dom.docPanel.querySelector('[name="' + name + '"]');
+      if (input) input.value = sample[name];
+    });
+    const error = dom.docPanel.querySelector('.doc-panel-error');
+    if (error) error.hidden = true;
+  }
+
+  function confirmFlowFields() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    const flow = session.flow;
+    const fields = flowFieldSchema(flow);
+    const values = {};
+    const missing = [];
+    fields.forEach((field) => {
+      const input = dom.docPanel.querySelector('[name="' + field.name + '"]');
+      const value = input ? String(input.value || '').trim() : '';
+      if (field.required && !value) missing.push(field);
+      values[field.name] = value;
+    });
+    const error = dom.docPanel.querySelector('.doc-panel-error');
+    if (missing.length) {
+      if (error) {
+        error.hidden = false;
+        error.textContent = '请补充：' + missing.map((field) => field.label).join('、');
+      }
+      const first = dom.docPanel.querySelector('[name="' + missing[0].name + '"]');
+      if (first) first.focus();
+      return;
+    }
+    flow.draft = Object.assign({}, flow.draft, values);
+    flow.values = Object.assign({
+      dept: state.user.dept,
+      applicant: state.user.name,
+      date: today()
+    }, flowIsReturn(flow) ? { retType: '退货' } : {}, values);
+    flow.stage = 'done-pending';
+    state.docPanelClosed = null;
+    hideDocPanel();
+    session.typing = true;
+    renderChat();
+    scrollChatToBottom();
+    clearFlowTimer();
+    state.flowTimer = setTimeout(() => {
+      flow.stage = 'done';
+      session.typing = false;
+      renderChat();
+      scrollChatToBottom();
+      toast(flowIsReturn(flow) ? '退库申请单已填写完毕' : '文档已按模板生成');
+    }, 1000);
+  }
+
+  function copyFlowContent() {
+    const sheet = document.querySelector('.form-sheet');
+    const text = sheet ? sheet.innerText.trim() : '';
+    if (navigator.clipboard && navigator.clipboard.writeText && text) {
+      navigator.clipboard.writeText(text).then(() => toast('申请单内容已复制')).catch(() => toast('内容已复制（演示）'));
+    } else {
+      toast('申请单内容已复制（演示）');
+    }
+  }
+
+  function downloadFlowDoc() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    const flow = session.flow;
+    const sheet = document.querySelector('.form-sheet');
+    if (!sheet) return;
+    const name = String(flow.templateName || 'UWork 文档').replace(/\.docx?$/i, '');
+    const html = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>' + esc(name) +
+      '</title><style>body{font-family:"Microsoft YaHei",sans-serif;padding:32px;color:#1c1c1e}' +
+      '.form-sheet-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1c1c1e;padding-bottom:10px;margin-bottom:0}' +
+      '.form-sheet-head b{font-size:22px;letter-spacing:.08em}.form-sheet-head small{display:block;font-size:10px;color:#777;letter-spacing:.16em}' +
+      '.form-sheet-table{width:100%;border-collapse:collapse;font-size:13px}' +
+      '.form-sheet-table th,.form-sheet-table td{border:1px solid #333;padding:8px 10px;text-align:left;vertical-align:top}' +
+      '.form-sheet-table th{background:#f4f5f7;width:96px;font-weight:600}' +
+      '.form-sheet-table .is-section,.form-sheet-table .is-section-row{background:#f4f5f7;font-weight:600}' +
+      '.sheet-reason{min-height:96px;line-height:1.7}.sheet-line{line-height:2}' +
+      '</style></head><body>' + sheet.innerHTML + '</body></html>';
+    const blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name + '.doc';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast('已下载：' + name + '.doc（原型演示）');
+  }
+
+  function printFlowDoc() {
+    const sheet = document.querySelector('.form-sheet');
+    if (!sheet) return;
+    const win = window.open('', '_blank', 'width=880,height=960');
+    if (!win) { toast('浏览器拦截了打印窗口，请允许弹出窗口'); return; }
+    win.document.write('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>退库申请单</title>' +
+      '<style>body{font-family:"Microsoft YaHei",sans-serif;padding:28px;color:#111}' +
+      '.form-sheet-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:10px}' +
+      '.form-sheet-head b{font-size:22px;letter-spacing:.08em}.form-sheet-head small{display:block;font-size:10px;color:#777;letter-spacing:.16em}' +
+      '.form-sheet-table{width:100%;border-collapse:collapse;font-size:13px}' +
+      '.form-sheet-table th,.form-sheet-table td{border:1px solid #333;padding:8px 10px;text-align:left;vertical-align:top}' +
+      '.form-sheet-table th,.form-sheet-table .is-section,.form-sheet-table .is-section-row{background:#f4f5f7;font-weight:600}' +
+      '.form-sheet-table th{width:96px}.sheet-reason{min-height:96px;line-height:1.7}.sheet-line{line-height:2}' +
+      '@page{margin:12mm}</style></head><body>' + sheet.innerHTML + '</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 320);
+  }
+
+  function submitFlowDoc() {
+    const session = currentSession();
+    if (!session || !session.flow) return;
+    const flow = session.flow;
+    if (flow.submitted) { toast('该申请单已提交审批'); return; }
+    const ok = window.confirm('提交后将进入审批流程：\n1. 申请部门部长审批\n2. 质量部检验\n3. 库房管理员接收\n\n确认提交？');
+    if (!ok) return;
+    flow.submitted = true;
+    flow.submitAt = nowTime();
+    renderChat();
+    scrollChatToBottom();
+    toast('已提交审批，当前审批人：部门部长');
+  }
+
+  function onDocFlowAction(action, el) {
+    const session = currentSession();
+    switch (action) {
+      case 'docflow-pick-library':
+        selectLibraryTemplate();
+        break;
+      case 'docflow-other':
+        openTemplatePicker('docflow');
+        break;
+      case 'docflow-use':
+        confirmFlowTemplate();
+        break;
+      case 'docflow-dismiss':
+        dismissDocPanel();
+        break;
+      case 'docflow-resume':
+        resumeFlowPanel();
+        break;
+      case 'docflow-fill-sample':
+        fillFlowSample();
+        break;
+      case 'docflow-confirm-fields':
+        confirmFlowFields();
+        break;
+      case 'docflow-download':
+        downloadFlowDoc();
+        break;
+      case 'docflow-print':
+        printFlowDoc();
+        break;
+      case 'docflow-copy':
+        copyFlowContent();
+        break;
+      case 'docflow-submit':
+        submitFlowDoc();
+        break;
+      case 'docflow-jump-session':
+        if (session && el && el.dataset.session) {
+          state.currentSessionId = el.dataset.session;
+          renderChat();
+        }
+        break;
+      default:
+        break;
+    }
   }
 
   /* ============================== 事件绑定 ============================== */
@@ -1922,6 +2659,27 @@
         sendMessage();
       }
     });
+    if (dom.docPanel) {
+      dom.docPanel.addEventListener('input', (event) => {
+        const session = currentSession();
+        const field = event.target && event.target.name;
+        if (!session || !session.flow || !field) return;
+        session.flow.draft = session.flow.draft || {};
+        session.flow.draft[field] = event.target.value;
+        const error = dom.docPanel.querySelector('.doc-panel-error');
+        if (error) error.hidden = true;
+      });
+      dom.docPanel.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.isComposing) return;
+        if (event.target && event.target.tagName === 'TEXTAREA') return;
+        const session = currentSession();
+        if (!session || !session.flow || session.flow.stage !== 'fields') return;
+        if (event.target && event.target.closest('#doc-field-form')) {
+          event.preventDefault();
+          confirmFlowFields();
+        }
+      });
+    }
     dom.addBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       togglePlus();
@@ -1977,15 +2735,18 @@
     window.addEventListener('resize', hideWorkspaceMenu);
     window.addEventListener('resize', hidePermissionMenu);
     window.addEventListener('resize', hideModelMenu);
+    window.addEventListener('resize', placeDocPanel);
     const viewScroll = $('#view-scroll');
     if (viewScroll) viewScroll.addEventListener('scroll', () => {
       if (!dom.workspaceMenu.hidden) hideWorkspaceMenu();
       if (!dom.permissionMenu.hidden) hidePermissionMenu();
       if (!dom.modelMenu.hidden) hideModelMenu();
+      placeDocPanel();
     }, { passive: true });
     const chatScroll = $('#chat-scroll');
     if (chatScroll) chatScroll.addEventListener('scroll', () => {
       if (!dom.modelMenu.hidden) hideModelMenu();
+      placeDocPanel();
     }, { passive: true });
     $('#local-file-input').addEventListener('change', (event) => {
       const files = Array.from(event.target.files || []);
@@ -2232,6 +2993,11 @@
   }
 
   function handleAction(action, el, event) {
+    if (action.indexOf('docflow-') === 0) {
+      event.preventDefault();
+      onDocFlowAction(action, el);
+      return;
+    }
     switch (action) {
       case 'toggle-plus':
         event.stopPropagation();
@@ -2734,6 +3500,7 @@
     if (!state.picker || !state.pickerMeta) return;
     const meta = state.pickerMeta.get(key);
     if (!meta) return;
+    const single = state.picker.type === 'tpl' && state.pickerContext === 'docflow';
     let parentKey = meta.parentKey;
     while (parentKey) {
       state.picker.selected.delete(parentKey);
@@ -2741,8 +3508,21 @@
       parentKey = parent ? parent.parentKey : null;
     }
     if (checked) {
-      state.picker.selected.add(key);
-      (meta.descendants || []).forEach((item) => state.picker.selected.add(item));
+      if (single) {
+        state.picker.selected.clear();
+        if (meta.kind === 'tplfolder') {
+          const hit = (meta.descendants || []).map((child) => state.pickerMeta.get(child)).find((child) => child && child.kind === 'tpl');
+          if (hit) {
+            state.picker.selected.add(hit.key);
+            (hit.descendants || []).forEach((item) => state.picker.selected.add(item));
+          }
+        } else {
+          state.picker.selected.add(key);
+        }
+      } else {
+        state.picker.selected.add(key);
+        (meta.descendants || []).forEach((item) => state.picker.selected.add(item));
+      }
     } else {
       state.picker.selected.delete(key);
       (meta.descendants || []).forEach((item) => state.picker.selected.delete(item));
@@ -3117,8 +3897,9 @@
     }).map((item) => item.id));
   }
 
-  function openTemplatePicker() {
+  function openTemplatePicker(context) {
     if (!state.user) return;
+    state.pickerContext = context === 'docflow' ? 'docflow' : 'attach';
     state.picker = {
       type: 'tpl', selected: new Set(),
       expanded: new Set(DB.templateFolders.filter((folder) => !folder.parent).map((folder) => 'tplfolder:' + folder.id)),
@@ -3126,6 +3907,12 @@
     };
     state.pickerMeta = prepareTemplatePickerMeta();
     $('#template-picker-search').value = '';
+    $('#template-picker-title').textContent = state.pickerContext === 'docflow' ? '选择要使用的模板' : '选择文档模板';
+    $('#template-picker-sub').textContent = state.pickerContext === 'docflow'
+      ? '选中一个模板后点击「使用该模板」，AI 将按该模板解析字段并自动填写。'
+      : '支持选择整个目录或单个模板，使用时自动带入标准格式。';
+    const confirm = $('#template-picker-confirm');
+    if (confirm) confirm.textContent = state.pickerContext === 'docflow' ? '使用该模板' : '确定';
     renderTemplatePicker();
     openDialog(dom.tplPicker);
     setTimeout(() => { const input = $('#template-picker-search'); if (input) input.focus(); }, 80);
@@ -3167,6 +3954,10 @@
   }
 
   function confirmTemplatePicker() {
+    if (state.pickerContext === 'docflow') {
+      applyPickedFlowTemplate();
+      return;
+    }
     const keys = pickerMaximalKeys();
     let added = 0;
     keys.forEach((key) => {
@@ -3760,6 +4551,7 @@
     const title = String(item.name || '').replace(/\.[^.]+$/, '');
     const ext = String(item.ext || '').toLowerCase();
     if (type === 'template') {
+      if (item.form === 'return') return blankReturnSheet();
       return '<h3>' + esc(title) + '</h3>' +
         '<p><strong>模板用途：</strong>用于规范' + esc(title.replace(/模板|表/g, '')) + '的编写格式，填写完成后可作为正式工作输出。</p>' +
         '<h4>一、适用范围</h4><p>适用于公司各部门开展相关业务时的标准记录，使用前请确认数据密级与填写权限。</p>' +

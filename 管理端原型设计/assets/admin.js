@@ -38,6 +38,7 @@
     'kb-detail': { parent: '知识库', title: '知识库详情', kicker: 'KNOWLEDGE' },
     templates: { parent: '内容运营', title: '文档模板', kicker: 'TEMPLATE' },
     models: { parent: '能力配置', title: '模型管理', kicker: 'MODEL' },
+    'agent-perms': { parent: '能力配置', title: '智能体权限', kicker: 'AGENT ACCESS' },
     skills: { parent: '能力配置', title: '技能管理', kicker: 'SKILL' },
     connectors: { parent: '能力配置', title: '连接器管理', kicker: 'CONNECTOR' },
     updates: { parent: '能力配置', title: '软件更新', kicker: 'CLIENT UPDATE' },
@@ -74,6 +75,9 @@
     userQuery: '',
     userLevel: 'all',
     userStatus: 'all',
+    agentTab: 'dept',
+    agentDept: 'dep2',
+    agentQuery: '',
     roleQuery: '',
     menuQuery: '',
     deptQuery: '',
@@ -337,6 +341,8 @@
     if (kbCount) kbCount.textContent = DB.knowledgeBases.length;
     const tplCount = $('#nav-tpl-count');
     if (tplCount) tplCount.textContent = DB.templates.length;
+    const agentCount = $('#nav-agent-count');
+    if (agentCount) agentCount.textContent = (DB.agents || []).length;
   }
 
   function setSystemOpen(open) {
@@ -363,6 +369,7 @@
       case 'kb-detail': renderKbDetail(root); break;
       case 'templates': renderTemplates(root); break;
       case 'models': renderModels(root); break;
+      case 'agent-perms': renderAgentPerms(root); break;
       case 'skills': renderSkills(root); break;
       case 'connectors': renderConnectors(root); break;
       case 'updates': renderUpdates(root); break;
@@ -2071,7 +2078,7 @@
       '</div>' +
       '<section class="card">' +
         '<div class="card-head"><div><h2>用户列表</h2><p>修改密级会立即影响该账号在客户端的可见内容</p></div><span class="tag tag-amber">' + icon('info') + '客户端需重新登录生效</span></div>' +
-        '<div class="table-wrap"><table class="admin-table"><thead><tr><th>用户</th><th>部门</th><th>角色</th><th>岗位</th><th>数据密级</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead><tbody id="user-tbody"></tbody></table></div>' +
+        '<div class="table-wrap"><table class="admin-table"><thead><tr><th>用户</th><th>部门</th><th>角色</th><th>岗位</th><th>数据密级</th><th>智能体权限</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead><tbody id="user-tbody"></tbody></table></div>' +
         tableFooter('user-total', users.length) +
       '</section>';
     paintUserRows();
@@ -2092,21 +2099,28 @@
         '<td><span class="tag">' + esc(user.role) + '</span></td>' +
         '<td><span class="muted">' + esc(user.position) + '</span></td>' +
         '<td>' + levelBadge(user.level) + '</td>' +
+        '<td>' + agentAccessCell(user) + '</td>' +
         '<td>' + statusBadge(user.status) + '</td>' +
         '<td><span class="muted">' + esc(user.lastLogin || '—') + '</span></td>' +
         '<td><div class="row-actions">' +
+          '<button type="button" class="link-action" data-action="config-user-agents" data-id="' + user.id + '">智能体</button>' +
           '<button type="button" class="link-action" data-action="toggle-user" data-id="' + user.id + '">' + (user.status === '启用' ? '停用' : '启用') + '</button>' +
           '<button type="button" class="icon-action" data-action="edit-user" data-id="' + user.id + '" title="编辑">' + icon('edit') + '</button>' +
           '<button type="button" class="icon-action is-danger" data-action="delete-user" data-id="' + user.id + '" title="删除">' + icon('trash') + '</button>' +
         '</div></td>' +
       '</tr>'
-    ).join('') : emptyTableRow(8, '没有匹配的用户。');
+    ).join('') : emptyTableRow(9, '没有匹配的用户。');
     const total = $('#user-total');
     if (total) total.textContent = list.length;
   }
 
   function openUserForm(id) {
     const user = id ? DB.users.find((item) => item.id === id) : null;
+    const override = user ? Store.userAgentOverride(user.id) : null;
+    const depOf = user ? Store.departmentOfUser(user) : null;
+    const depState = depOf ? deptAgentState(depOf.id) : null;
+    const inheritedIds = depState && depState.effective ? depState.effective : agentCatalog().map((agent) => agent.id);
+    const currentAgentIds = override || inheritedIds;
     openForm({
       title: user ? '编辑用户' : '新增用户',
       sub: '数据密级必须与岗位密级匹配，客户端按此过滤知识、模板与能力。',
@@ -2119,13 +2133,26 @@
         { name: 'position', label: '岗位', type: 'select', options: DB.positions.map((post) => post.name) },
         { name: 'level', label: '数据密级', type: 'select', options: LEVELS.map((level) => ({ value: level.code, label: level.name + '级' })) },
         { name: 'status', label: '账号状态', type: 'select', options: ['启用', '停用'] },
+        { name: 'agentMode', label: '智能体授权', type: 'select', options: [
+          { value: 'inherit', label: '继承部门授权' + (depOf ? '（' + depOf.name + '）' : '') },
+          { value: 'custom', label: '单独指定' }
+        ], help: '单独指定后，可随时在用户列表点击「智能体」调整' },
+        { name: 'agentIds', label: '可见智能体', type: 'multi', wide: true, options: agentOptions(),
+          help: '仅在「单独指定」时生效，不勾选任何智能体将无法使用客户端对话' },
         { name: 'phone', label: '手机号', placeholder: '138 **** 0000' },
         { name: 'email', label: '邮箱', wide: true, placeholder: 'name@uwork.cn' }
       ],
-      values: user || { dept: '质量管理部', role: '普通员工', position: '质量工程师', level: 'L2', status: '启用', phone: '', email: '' },
+      values: user ? Object.assign({}, user, {
+        agentMode: override ? 'custom' : 'inherit',
+        agentIds: currentAgentIds.join(',')
+      }) : {
+        dept: '质量管理部', role: '普通员工', position: '质量工程师', level: 'L2', status: '启用',
+        agentMode: 'inherit', agentIds: inheritedIds.join(','), phone: '', email: ''
+      },
       onSubmit: function (values) {
         const duplicate = DB.users.find((item) => item.username === values.username && (!user || item.id !== user.id));
         if (duplicate) { setFormError('登录账号已存在，请更换'); return false; }
+        let target = user;
         if (user) {
           user.username = values.username;
           user.name = values.name;
@@ -2137,7 +2164,7 @@
           user.phone = values.phone;
           user.email = values.email;
         } else {
-          DB.users.push({
+          target = {
             id: 'user-' + Date.now(),
             username: values.username,
             name: values.name,
@@ -2149,10 +2176,18 @@
             phone: values.phone,
             email: values.email,
             lastLogin: '—'
-          });
+          };
+          DB.users.push(target);
+        }
+        const perms = Store.agentPermissions();
+        const picked = String(values.agentIds || '').split(',').filter(Boolean);
+        if (values.agentMode === 'custom' && picked.length) {
+          perms.user[target.id] = { mode: 'custom', agents: picked };
+        } else {
+          delete perms.user[target.id];
         }
         Store.save();
-        renderUsers($('#view-root'));
+        rerenderAgentContext();
         toast(user ? '用户已更新' : '用户已新增');
         return true;
       }
@@ -2179,6 +2214,273 @@
       renderUsers($('#view-root'));
       toast('用户已删除');
     });
+  }
+
+  /* ============================== 智能体权限 ============================== */
+  function agentCatalog() {
+    return DB.agents || [];
+  }
+  function agentById(id) {
+    return agentCatalog().find((agent) => agent.id === id) || null;
+  }
+  function agentOptions() {
+    return agentCatalog().map((agent) => ({
+      value: agent.id,
+      label: agent.name,
+      meta: levelInfo(agent.level).name + '级 · ' + agent.desc
+    }));
+  }
+  function agentNames(ids) {
+    return (ids || []).map((id) => (agentById(id) || {}).name).filter(Boolean);
+  }
+  function agentChips(ids, dim) {
+    const names = agentNames(ids);
+    if (!names.length) return '<span class="agent-chip-sm is-off">未授权</span>';
+    return names.map((name) => '<span class="agent-chip-sm' + (dim ? ' is-dim' : '') + '">' + esc(name) + '</span>').join('');
+  }
+  /* 部门的授权状态：own 为本部门单独配置，source 为实际生效的配置来源。
+     自身未配置时沿 parent 向上回溯，都没有配置则默认全部智能体可见。 */
+  function deptAgentState(deptId) {
+    const perms = Store.agentPermissions();
+    const dept = DB.departments.find((item) => item.id === deptId) || null;
+    const own = dept && Array.isArray(perms.dept[dept.id]) ? perms.dept[dept.id].slice() : null;
+    let cursor = dept;
+    let source = null;
+    while (cursor) {
+      if (Array.isArray(perms.dept[cursor.id])) { source = cursor; break; }
+      cursor = cursor.parent ? DB.departments.find((item) => item.id === cursor.parent) : null;
+    }
+    const inherited = source ? perms.dept[source.id].slice() : null;
+    return { dept: dept, own: own, source: source, effective: own || inherited };
+  }
+  function agentAccessCell(user) {
+    const override = Store.userAgentOverride(user.id);
+    const effective = Store.agentsForUser(user).map((agent) => agent.id);
+    return '<div class="perm-cell">' +
+      '<span class="tag ' + (override ? 'tag-blue' : '') + '">' + (override ? '单独指定' : '继承部门') + '</span>' +
+      '<small>' + effective.length + ' 个 · ' + esc(agentNames(effective).join('、') || '无') + '</small>' +
+    '</div>';
+  }
+
+  function renderAgentPerms(root) {
+    const agents = agentCatalog();
+    const perms = Store.agentPermissions();
+    const deptCount = Object.keys(perms.dept).length;
+    const overrideUsers = DB.users.filter((user) => Store.userAgentOverride(user.id) !== null).length;
+    root.innerHTML =
+      pageHead('ABILITY · AGENT ACCESS', '智能体权限',
+        '智能体不是对所有用户开放：先按部门配置默认可见范围，再对个别用户在用户管理中单独指定。子部门未单独配置时自动继承上级部门。',
+        '<button type="button" class="btn" data-action="agent-perm-rules">' + icon('info') + '授权规则</button>') +
+      statGrid([
+        { label: '智能体总数', value: agents.length, icon: 'bot', tone: 'tone-blue' },
+        { label: '已配置部门', value: deptCount + ' / ' + DB.departments.length, icon: 'building', tone: 'tone-violet' },
+        { label: '个人单独授权', value: overrideUsers, icon: 'user', tone: 'tone-amber' },
+        { label: '继承部门', value: DB.users.length - overrideUsers, icon: 'users', tone: 'tone-emerald' }
+      ]) +
+      '<div class="sys-tabs">' +
+        '<button type="button" class="sys-tab' + (state.agentTab === 'dept' ? ' is-active' : '') + '" data-action="agent-tab" data-tab="dept">部门授权</button>' +
+        '<button type="button" class="sys-tab' + (state.agentTab === 'user' ? ' is-active' : '') + '" data-action="agent-tab" data-tab="user">用户单独授权</button>' +
+      '</div>' +
+      (state.agentTab === 'user' ? agentUserHtml() : agentDeptHtml());
+  }
+
+  function agentDeptTree(parent, depth) {
+    return DB.departments.filter((dep) => (dep.parent || null) === parent).map((dep) => {
+      const st = deptAgentState(dep.id);
+      const count = st.effective ? st.effective.length : agentCatalog().length;
+      const html = '<button type="button" class="tree-item' + (state.agentDept === dep.id ? ' is-active' : '') +
+          '" data-action="pick-agent-dept" data-id="' + dep.id + '" style="padding-left:' + (6 + depth * 13) + 'px">' +
+          icon(depth ? 'chevron-right' : 'building') +
+          '<span class="label">' + esc(dep.name) + '</span>' +
+          '<span class="count">' + (st.own ? '' : icon('lock')) + count + '</span>' +
+        '</button>';
+      return html + agentDeptTree(dep.id, depth + 1);
+    }).join('');
+  }
+
+  function agentDeptHtml() {
+    if (!DB.departments.some((dep) => dep.id === state.agentDept)) {
+      state.agentDept = DB.departments[0] ? DB.departments[0].id : '';
+    }
+    const st = deptAgentState(state.agentDept);
+    if (!st.dept) return '<div class="empty-state">请先在「部门管理」中创建部门。</div>';
+    const fallbackIds = agentCatalog().map((agent) => agent.id);
+    const checked = st.own || st.effective || fallbackIds;
+    const modeTag = st.own
+      ? '<span class="tag tag-green">' + icon('check-circle') + '已单独配置</span>'
+      : (st.source
+        ? '<span class="tag tag-amber">' + icon('lock') + '继承 ' + esc(st.source.name) + '</span>'
+        : '<span class="tag">' + icon('info') + '默认全部可见</span>');
+    const note = st.own
+      ? '本部门已单独配置，不再继承上级部门。子部门未单独配置时会继承这里的授权。'
+      : (st.source
+        ? '本部门未单独配置，当前继承「' + esc(st.source.name) + '」的授权（' + st.effective.length + ' 个）。勾选并保存后将覆盖继承。'
+        : '本部门及上级均未配置，默认全部智能体可见。勾选并保存后将只对选定智能体开放。');
+    const cards = agentCatalog().map((agent) => {
+      const on = checked.indexOf(agent.id) >= 0;
+      return '<label class="agent-perm-card' + (on ? ' is-on' : '') + '">' +
+        '<input type="checkbox" name="dept-agent" value="' + agent.id + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="agent-perm-ico ' + agent.tone + '">' + icon(agent.icon) + '</span>' +
+        '<span class="agent-perm-copy"><b>' + esc(agent.name) + '</b><small>' + esc(agent.desc) + '</small></span>' +
+        '<span class="agent-perm-check">' + icon('check') + '</span>' +
+      '</label>';
+    }).join('');
+    return '<div class="split-layout">' +
+      '<aside class="tree-panel">' +
+        '<div class="tree-panel-head">组织架构<span>' + DB.departments.length + ' 个部门</span></div>' +
+        '<div class="tree-list">' + agentDeptTree(null, 0) + '</div>' +
+        '<div class="tree-tip">' + icon('info') + '<span>带 <b>' + icon('lock') + '</b> 的部门未单独配置，沿用上级部门授权。</span></div>' +
+      '</aside>' +
+      '<section class="card">' +
+        '<div class="card-head"><div><h2>' + esc(st.dept.name) + ' · 智能体授权</h2>' +
+          '<p>' + esc(st.dept.leader ? '负责人 ' + st.dept.leader + ' · ' : '') + '部门成员在客户端默认可见以下智能体</p></div>' + modeTag + '</div>' +
+        '<div class="card-body">' +
+          '<div class="panel-note">' + icon('shield') + '<span>' + note + '</span></div>' +
+          '<div class="agent-perm-grid" id="agent-dept-panel">' + cards + '</div>' +
+          '<div class="perm-foot">' +
+            '<span class="muted">保存后立即生效，成员下次进入客户端即可看到新的智能体范围。</span>' +
+            '<div class="row-actions">' +
+              (st.own ? '<button type="button" class="btn btn-ghost" data-action="reset-dept-agents">恢复继承</button>' : '') +
+              '<button type="button" class="btn btn-primary" data-action="save-dept-agents">' + icon('check') + '保存部门授权</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</section>' +
+    '</div>';
+  }
+
+  function agentUserHtml() {
+    const overrideCount = DB.users.filter((user) => Store.userAgentOverride(user.id) !== null).length;
+    const rows = DB.users.map((user) => {
+      const override = Store.userAgentOverride(user.id);
+      const dep = Store.departmentOfUser(user);
+      const depState = dep ? deptAgentState(dep.id) : null;
+      const depIds = depState && depState.effective ? depState.effective : agentCatalog().map((agent) => agent.id);
+      const effective = Store.agentsForUser(user).map((agent) => agent.id);
+      return '<tr>' +
+        '<td><div class="avatar-cell"><span class="avatar">' + avatar(user.name) + '</span><span class="cell-copy"><b>' + esc(user.name) + '</b><small>' + esc(user.username) + '</small></span></div></td>' +
+        '<td><span class="muted">' + esc(user.dept) + '</span></td>' +
+        '<td><span class="tag ' + (override ? 'tag-blue' : '') + '">' + (override ? '单独指定' : '继承部门') + '</span></td>' +
+        '<td><div class="agent-chips">' + agentChips(effective) + '</div></td>' +
+        '<td><div class="agent-chips">' + agentChips(depIds, true) + '</div></td>' +
+        '<td><div class="row-actions"><button type="button" class="link-action" data-action="config-user-agents" data-id="' + user.id + '">配置</button>' +
+          (override ? '<button type="button" class="link-action" data-action="clear-user-agents" data-id="' + user.id + '">恢复继承</button>' : '') +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+    return '<section class="card">' +
+      '<div class="card-head"><div><h2>用户单独授权</h2><p>单独指定优先于部门授权；选择「继承部门」时跟随部门配置变化</p></div>' +
+        '<span class="tag tag-blue">' + icon('user') + '按用户</span></div>' +
+      '<div class="table-wrap"><table class="admin-table"><thead><tr><th>用户</th><th>部门</th><th>授权方式</th><th>客户端可见智能体</th><th>部门默认</th><th>操作</th></tr></thead><tbody>' +
+        rows + '</tbody></table></div>' +
+      '<div class="table-footer"><span>共 ' + DB.users.length + ' 个用户</span><span>单独授权 ' + overrideCount + ' 人 · 其余继承部门</span></div>' +
+    '</section>';
+  }
+
+  function openUserAgentForm(id) {
+    const user = DB.users.find((item) => item.id === id);
+    if (!user) return;
+    const override = Store.userAgentOverride(user.id);
+    const dep = Store.departmentOfUser(user);
+    const depState = dep ? deptAgentState(dep.id) : null;
+    const inheritedIds = depState && depState.effective ? depState.effective : agentCatalog().map((agent) => agent.id);
+    const currentIds = override || inheritedIds;
+    openForm({
+      title: '配置「' + user.name + '」的智能体权限',
+      sub: '个人单独授权优先于部门授权，保存后立即影响该账号在客户端首页与会话中可见的智能体。',
+      submitText: '保存权限',
+      fields: [
+        { name: 'agentMode', label: '授权方式', type: 'select', options: [
+          { value: 'inherit', label: '继承部门授权' + (dep ? '（' + dep.name + '）' : '') },
+          { value: 'custom', label: '单独指定' }
+        ], help: '继承部门：跟随部门配置变化；单独指定：以本页勾选为准' },
+        { name: 'agentIds', label: '可见智能体', type: 'multi', wide: true, options: agentOptions(),
+          help: '仅在「单独指定」时生效；不勾选任何智能体将无法使用客户端对话' }
+      ],
+      values: { agentMode: override ? 'custom' : 'inherit', agentIds: currentIds.join(',') },
+      onSubmit: function (values) {
+        const picked = String(values.agentIds || '').split(',').filter(Boolean);
+        const perms = Store.agentPermissions();
+        if (values.agentMode === 'custom') {
+          if (!picked.length) { setFormError('请至少选择一个智能体，或改为「继承部门授权」'); return false; }
+          perms.user[user.id] = { mode: 'custom', agents: picked };
+        } else {
+          delete perms.user[user.id];
+        }
+        Store.save();
+        writeAudit('智能体权限', '编辑', user.name,
+          values.agentMode === 'custom' ? '单独授权 ' + picked.length + ' 个智能体' : '恢复为继承部门授权');
+        rerenderAgentContext();
+        toast('已更新「' + user.name + '」的智能体权限');
+        return true;
+      }
+    });
+  }
+
+  function clearUserAgents(id) {
+    const user = DB.users.find((item) => item.id === id);
+    if (!user) return;
+    const perms = Store.agentPermissions();
+    delete perms.user[user.id];
+    Store.save();
+    writeAudit('智能体权限', '编辑', user.name, '恢复为继承部门授权');
+    rerenderAgentContext();
+    toast('「' + user.name + '」已恢复为继承部门授权');
+  }
+
+  function saveDeptAgents() {
+    const panel = $('#agent-dept-panel');
+    const dept = DB.departments.find((item) => item.id === state.agentDept);
+    if (!panel || !dept) return;
+    const ids = $$('input[name="dept-agent"]:checked', panel).map((input) => input.value);
+    if (!ids.length) { toast('请至少保留一个智能体，或点击「恢复继承」'); return; }
+    const perms = Store.agentPermissions();
+    perms.dept[dept.id] = ids;
+    Store.save();
+    writeAudit('智能体权限', '编辑', '部门「' + dept.name + '」', '授权 ' + ids.length + ' 个智能体');
+    renderAgentPerms($('#view-root'));
+    toast('「' + dept.name + '」的智能体授权已保存');
+  }
+
+  function resetDeptAgents() {
+    const dept = DB.departments.find((item) => item.id === state.agentDept);
+    if (!dept) return;
+    const perms = Store.agentPermissions();
+    delete perms.dept[dept.id];
+    Store.save();
+    writeAudit('智能体权限', '编辑', '部门「' + dept.name + '」', '清除单独配置，恢复上级继承');
+    renderAgentPerms($('#view-root'));
+    toast('「' + dept.name + '」已恢复上级继承');
+  }
+
+  function agentPermRules() {
+    openForm({
+      title: '智能体授权规则',
+      sub: '两级授权模型与优先级说明',
+      submitText: '知道了',
+      fields: [
+        { name: 'rules', label: '规则说明', type: 'textarea', rows: 12, value:
+          '一、两级授权\n' +
+          '1. 部门级：在「智能体权限 → 部门授权」为部门勾选可见智能体，作为该部门成员的默认范围。\n' +
+          '2. 用户级：在「用户管理」或「智能体权限 → 用户单独授权」对某个用户单独指定，优先于部门授权。\n\n' +
+          '二、继承规则\n' +
+          '1. 子部门未单独配置时，沿组织架构向上查找最近的已配置部门并继承。\n' +
+          '2. 部门与上级都未配置时，默认全部启用中的智能体可见。\n' +
+          '3. 个人选择「继承部门」时不保留个人配置；选择「单独指定」后不再随部门变化。\n\n' +
+          '三、生效范围\n' +
+          '1. 客户端首页智能体选择区、会话顶部智能体标识只展示授权范围内的智能体。\n' +
+          '2. 未授权智能体不会出现在客户端，也无法通过切换智能体绕过。\n' +
+          '3. 修改后立即生效，用户重新进入客户端即可看到新的范围。' }
+      ],
+      onSubmit: function () { return true; }
+    });
+    $('#form-submit').textContent = '关闭';
+  }
+
+  function rerenderAgentContext() {
+    if (state.view === 'sys-users') renderUsers($('#view-root'));
+    else if (state.view === 'agent-perms') renderAgentPerms($('#view-root'));
+    updateChrome();
   }
 
   /* ============================== 角色管理 ============================== */
@@ -3085,6 +3387,10 @@
     }
     if (view === 'connectors' && params.get('dialog') === 'connector-folder') setTimeout(() => openConnectorFolderForm(), 120);
     if (view === 'connectors' && params.get('dialog') === 'connector') setTimeout(() => openConnectorForm(), 120);
+    if (view === 'agent-perms' && params.get('tab')) {
+      state.agentTab = params.get('tab') === 'user' ? 'user' : 'dept';
+      renderAgentPerms($('#view-root'));
+    }
     if (params.get('dialog') === 'level') setTimeout(() => openLevelForm(), 120);
     if (params.get('dialog') === 'upload') {
       setTimeout(() => {
@@ -3168,6 +3474,11 @@
       if (event.target.closest && event.target.closest('#form-body')) {
         const formError = $('#form-error');
         if (formError) formError.hidden = true;
+      }
+      if (event.target.matches && event.target.matches('input[name="dept-agent"]')) {
+        const card = event.target.closest('.agent-perm-card');
+        if (card) card.classList.toggle('is-on', event.target.checked);
+        return;
       }
       const id = event.target.id;
       if (id === 'form-file-input') { setFormFile(event.target.files && event.target.files[0]); return; }
@@ -3280,6 +3591,14 @@
       case 'delete-model': deleteModel(id); break;
       case 'toggle-model': toggleModel(id); break;
       case 'default-model': setDefaultModel(id); break;
+
+      case 'agent-tab': state.agentTab = el.dataset.tab === 'user' ? 'user' : 'dept'; renderAgentPerms($('#view-root')); break;
+      case 'pick-agent-dept': state.agentDept = id; renderAgentPerms($('#view-root')); break;
+      case 'save-dept-agents': saveDeptAgents(); break;
+      case 'reset-dept-agents': resetDeptAgents(); break;
+      case 'config-user-agents': openUserAgentForm(id); break;
+      case 'clear-user-agents': clearUserAgents(id); break;
+      case 'agent-perm-rules': agentPermRules(); break;
 
       case 'new-skill': openSkillForm(); break;
       case 'edit-skill': openSkillForm(id); break;
